@@ -9,6 +9,7 @@ const {
   declaredInputProjectionImplementation,
   hasDeclaredDeterministicImplementation,
 } = require("../app/routes/capabilityBlueprints");
+const { reconcileSingleResponseOutput } = require("../app/routes/capabilityEntityPlan");
 
 const baseRequest = {
   schemaVersion: 1,
@@ -179,6 +180,43 @@ test("EntityPlan compiles a browser-resolved ContextDB input without a provider 
       params: [{ report: "The current register status is {|req=>body.status|}." }],
     }],
   }]);
+});
+
+test("a one-slot EntityPlan response adopts the contract's compatible output identity", async () => {
+  const mismatched = plan({
+    source: "input",
+    requestId: null,
+    path: null,
+    inputName: "location",
+    literal: null,
+    prefix: "",
+    suffix: "",
+  });
+  mismatched.executionPlan.response.outputs[0].name = "status";
+  const result = await buildComputeEntitySpec({
+    capabilityRequest: baseRequest,
+    requestedBy: "u:2",
+    originalUtterance: "What is the weather?",
+    generatedImplementation: mismatched,
+  });
+  assert.deepEqual(
+    result.computeEntity.published.actions.at(-1).chain[0].params[0],
+    { temperature: "{|weather_response=>data.main.temp|}" }
+  );
+});
+
+test("single-output reconciliation does not guess across incompatible or multi-slot contracts", () => {
+  const generated = [{
+    name: "status",
+    value: { source: "literal", literal: "clean", prefix: "", suffix: "" },
+  }];
+  assert.equal(
+    reconcileSingleResponseOutput(generated, { outputs: [{ name: "count", type: "number" }] })[0].name,
+    "status"
+  );
+  assert.equal(reconcileSingleResponseOutput(generated, {
+    outputs: [{ name: "state", type: "string" }, { name: "message", type: "string" }],
+  })[0].name, "status");
 });
 
 test("a one-input local projection compiles without asking a model to rewrite its contract", async () => {

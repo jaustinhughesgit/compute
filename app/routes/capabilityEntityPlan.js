@@ -360,6 +360,52 @@ function compileResponseValue(raw, requestIds, declaredInputs) {
   throw new Error(`entity plan response value source ${source || "(blank)"} is unsupported`);
 }
 
+function scalarTypeIsCompatible(value, outputType) {
+  const type = String(outputType || "any").toLowerCase();
+  if (type === "any") return true;
+  if (value == null) return false;
+  if (type === "integer") return Number.isInteger(value);
+  if (type === "number") return typeof value === "number" && Number.isFinite(value);
+  if (type === "boolean") return typeof value === "boolean";
+  if (["string", "date", "datetime", "file"].includes(type)) return typeof value === "string";
+  if (type === "object") return !!value && typeof value === "object" && !Array.isArray(value);
+  if (type === "array") return Array.isArray(value);
+  return false;
+}
+
+function responseValueIsCompatible(value, declaredOutput, operation) {
+  const source = String(value?.source || "");
+  if (source === "provider_response") return true;
+  if (source === "literal") {
+    if (value.prefix || value.suffix) {
+      return ["any", "string", "date", "datetime", "file"].includes(
+        String(declaredOutput?.type || "any").toLowerCase()
+      );
+    }
+    return scalarTypeIsCompatible(value.literal, declaredOutput?.type);
+  }
+  if (source === "input") {
+    const inputName = String(value.inputName || "").trim().toLowerCase();
+    const input = (operation?.inputs || []).find((candidate) => String(candidate?.name || "") === inputName);
+    if (!input) return false;
+    const inputType = String(input.type || "any").toLowerCase();
+    const outputType = String(declaredOutput?.type || "any").toLowerCase();
+    return inputType === outputType || inputType === "any" || outputType === "any";
+  }
+  return false;
+}
+
+function reconcileSingleResponseOutput(responseOutputs, operation) {
+  const generated = Array.isArray(responseOutputs) ? responseOutputs : [];
+  const declared = Array.isArray(operation?.outputs) ? operation.outputs : [];
+  if (generated.length !== 1 || declared.length !== 1) return generated;
+  const generatedName = cleanId(generated[0]?.name, "response output name");
+  const declaredName = String(declared[0]?.name || "");
+  if (generatedName === declaredName) return generated;
+  if (!responseValueIsCompatible(generated[0]?.value, declared[0], operation)) return generated;
+  return [{ ...generated[0], name: declaredName }];
+}
+
 function compileEntityPlan(rawPlan, buildRequest) {
   const plan = rawPlan && typeof rawPlan === "object" && !Array.isArray(rawPlan)
     ? JSON.parse(JSON.stringify(rawPlan))
@@ -455,7 +501,7 @@ function compileEntityPlan(rawPlan, buildRequest) {
   }
   const declaredOutputs = new Set((operation.outputs || []).map((output) => String(output.name)));
   const payload = {};
-  for (const output of response.outputs || []) {
+  for (const output of reconcileSingleResponseOutput(response.outputs, operation)) {
     const name = cleanId(output.name, "response output name");
     if (!declaredOutputs.has(name)) throw new Error(`entity plan response contains undeclared output ${name}`);
     if (Object.prototype.hasOwnProperty.call(payload, name)) throw new Error(`entity plan contains duplicate output ${name}`);
@@ -515,4 +561,5 @@ module.exports = {
   ENTITY_PLAN_SCHEMA,
   compileEntityPlan,
   isEntityPlan,
+  reconcileSingleResponseOutput,
 };
