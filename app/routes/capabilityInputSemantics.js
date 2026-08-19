@@ -553,6 +553,7 @@ function filterGeneratedOwnerInputRequirements(rawBuildRequest, rawGroups, origi
 }
 
 module.exports = {
+  explicitInputDeclaration,
   isCurrentSpeakerIdentifier,
   applyGeneratedAnswerPlan,
   normalizeGeneratedConvertOwnerBindings,

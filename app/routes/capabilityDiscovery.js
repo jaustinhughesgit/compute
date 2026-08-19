@@ -20,6 +20,7 @@ const {
 } = require("./capabilityManifest");
 const {
   applyGeneratedAnswerPlan,
+  explicitInputDeclaration,
   normalizeGeneratedConvertOwnerBindings,
 } = require("./capabilityInputSemantics");
 const { GENERIC_BLUEPRINT_ID } = require("./capabilityBlueprints");
@@ -1042,7 +1043,7 @@ function repairGeneratedEffectSpokenInputs(rawRequest, requirementSegments = [],
       if (
         !name
         || effectSubjects.has(name)
-        || input?.required === false
+        || explicitInputDeclaration(requirementSegments, input?.name)
         || String(input?.bindingHint?.source || "").toLowerCase() !== "utterance"
         || usedByCalculation.has(name)
       ) return false;

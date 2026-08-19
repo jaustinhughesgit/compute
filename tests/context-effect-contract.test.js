@@ -437,7 +437,7 @@ test("declared response punctuation and multiword subject variants remain exact"
   assert.equal(repaired.operations[0].answerTemplate, "Your {{vehicle}} is clean!");
 });
 
-test("a one-slot declared command family removes invented required spoken inputs", () => {
+test("a one-slot declared command family removes invented required and optional spoken inputs", () => {
   const generated = carwashBuildRequest();
   generated.operations[0].answerTemplate = "Your {{vehicle}} is clean";
   generated.operations[0].inputs.push(
@@ -452,11 +452,17 @@ test("a one-slot declared command family removes invented required spoken inputs
       type: "string",
       required: true,
       bindingHint: { source: "utterance", subject: "speaker", property: "model" },
+    },
+    {
+      name: "car_model",
+      type: "string",
+      required: false,
+      bindingHint: { source: "utterance", resolver: "string" },
     }
   );
   generated.operations[0].utteranceExamples = generated.operations[0].utteranceExamples.map((example) => ({
     ...example,
-    inputs: { ...example.inputs, make: "Toyota", model: "Camry" },
+    inputs: { ...example.inputs, make: "Toyota", model: "Camry", car_model: "Camry" },
   }));
   const repaired = repairGeneratedEffectSpokenInputs(generated, [
     "I can say, \"wash my car\", \"wash my camry\" or \"wash my toyota\".",
@@ -466,6 +472,22 @@ test("a one-slot declared command family removes invented required spoken inputs
     repaired.operations[0].utteranceExamples.map((example) => Object.keys(example.inputs)),
     [["vehicle"], ["vehicle"], ["vehicle"]]
   );
+});
+
+test("a one-slot command family retains an explicitly named optional input", () => {
+  const generated = carwashBuildRequest();
+  generated.operations[0].answerTemplate = "Your {{vehicle}} is clean";
+  generated.operations[0].inputs.push({
+    name: "wash_mode",
+    type: "string",
+    required: false,
+    bindingHint: { source: "utterance", resolver: "string" },
+  });
+  const repaired = repairGeneratedEffectSpokenInputs(generated, [
+    "I can say, \"wash my car\", \"wash my camry\" or \"wash my toyota\".",
+    "The optional input is called wash mode.",
+  ]);
+  assert.deepEqual(repaired.operations[0].inputs.map((input) => input.name), ["vehicle", "wash_mode"]);
 });
 
 test("validated effect semantics make declared responses authoritative before publication", () => {
