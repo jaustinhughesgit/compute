@@ -374,8 +374,7 @@ function canonicalizeGeneratedOperations(rawOperations, rawAnswerPlan = null) {
     ]).filter(Boolean));
     const redundantUnspokenTransitionInputNames = new Set(operation.inputs.filter((input) => {
       if (
-        input.bindingHint?.source !== "utterance"
-        || effectSubjectNames.has(input.name)
+        effectSubjectNames.has(input.name)
       ) return false;
       const escaped = input.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       const usedByAnswer = new RegExp(`{{\\s*${escaped}\\s*}}`, "i")

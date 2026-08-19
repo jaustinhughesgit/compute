@@ -339,6 +339,33 @@ test("unspoken model-invented transition inputs are removed from a fixed effect 
   )));
 });
 
+test("a model-invented default transition state cannot become a required app input", () => {
+  const generated = carwashBuildRequest();
+  generated.operations[0].inputs.push({
+    name: "current_status",
+    type: "string",
+    required: true,
+    description: "A generated copy of the effect result.",
+    bindingHint: {
+      source: "default",
+      subject: "speaker",
+      property: "currentStatus},",
+      resolver: "string",
+    },
+    clarification: "What is the current status?",
+  });
+  generated.operations[0].utteranceExamples = generated.operations[0].utteranceExamples.map((example) => ({
+    ...example,
+    inputs: { ...example.inputs, current_status: "clean" },
+  }));
+
+  const request = validateCapabilityBuildRequest(generated);
+  assert.deepEqual(request.operations[0].inputs.map((input) => input.name), ["vehicle"]);
+  assert.ok(request.operations[0].utteranceExamples.every((example) => (
+    !Object.hasOwn(example.inputs, "current_status")
+  )));
+});
+
 test("a transition value explicitly spoken at invocation remains an ordinary input", () => {
   const generated = carwashBuildRequest();
   generated.operations[0].inputs.push({

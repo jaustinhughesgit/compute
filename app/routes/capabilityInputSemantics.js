@@ -614,6 +614,10 @@ function filterGeneratedEffectInputRequirements(rawBuildRequest, rawGroups, orig
     const existing = new Set((operation?.inputs || []).map((input) =>
       canonicalizeGeneratedIdentifier(input?.name)
     ).filter(Boolean));
+    const effectFixedValues = new Set((operation?.contextEffects || []).flatMap((effect) => [
+      String(effect?.currentValue ?? "").trim().toLowerCase(),
+      String(effect?.newValue ?? "").trim().toLowerCase(),
+    ]).filter(Boolean));
     const next = { ...group };
     next.inputs = (Array.isArray(group.inputs) ? group.inputs : []).filter((input) => {
       const name = canonicalizeGeneratedIdentifier(input?.name);
@@ -621,8 +625,29 @@ function filterGeneratedEffectInputRequirements(rawBuildRequest, rawGroups, orig
         !name
         || existing.has(name)
         || explicitInputDeclaration(requirementSegments, name)
-        || String(input?.bindingHint?.source || "utterance").toLowerCase() !== "utterance"
       ) return true;
+      const annotations = (Array.isArray(group.utteranceExamples)
+        ? group.utteranceExamples
+        : []).flatMap((example) => (Array.isArray(example?.inputValues)
+        ? example.inputValues
+            .filter((item) => canonicalizeGeneratedIdentifier(item?.name) === name)
+            .map((item) => ({
+              text: String(example?.text || ""),
+              value: String(item?.value ?? "").trim(),
+            }))
+        : [])).filter((item) => item.value);
+      const duplicatesFixedTransition = annotations.length > 0
+        && annotations.every(({ text, value }) => {
+          const normalizedValue = value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+          const normalizedText = ` ${String(text).toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()} `;
+          return effectFixedValues.has(value.toLowerCase())
+            && normalizedValue
+            && !normalizedText.includes(` ${normalizedValue} `);
+        });
+      if (duplicatesFixedTransition) return false;
+      if (String(input?.bindingHint?.source || "utterance").toLowerCase() !== "utterance") {
+        return true;
+      }
       // One declared varying referent already owns the effect subject. Do not
       // split that same surface into a second required specialization.
       return false;
