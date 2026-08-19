@@ -21,6 +21,7 @@ const {
 } = require("./capabilityManifest");
 const {
   applyGeneratedAnswerPlan,
+  declaredSingleSlotFamilies,
   explicitInputDeclaration,
   normalizeGeneratedConvertOwnerBindings,
 } = require("./capabilityInputSemantics");
@@ -1022,37 +1023,7 @@ function repairGeneratedEffectResponseTemplates(rawRequest, requirementSegments 
 function repairGeneratedEffectSpokenInputs(rawRequest, requirementSegments = [], operationId = "") {
   const request = JSON.parse(JSON.stringify(rawRequest || {}));
   if (!Array.isArray(request.operations)) return request;
-  const declared = declaredInvocationExamples(requirementSegments);
-  const groups = new Map();
-  for (const text of declared) {
-    const tokens = String(text || "").toLowerCase().match(/[a-z0-9]+/g) || [];
-    if (!tokens.length) continue;
-    const group = groups.get(tokens.length) || [];
-    group.push(tokens);
-    groups.set(tokens.length, group);
-  }
-  const families = [];
-  for (const group of groups.values()) {
-    if (group.length < 2) continue;
-    let prefixLength = 0;
-    while (
-      prefixLength < group[0].length
-      && group.every((tokens) => tokens[prefixLength] === group[0][prefixLength])
-    ) prefixLength += 1;
-    let suffixLength = 0;
-    while (
-      suffixLength < group[0].length - prefixLength
-      && group.every((tokens) =>
-        tokens[tokens.length - 1 - suffixLength]
-          === group[0][group[0].length - 1 - suffixLength]
-      )
-    ) suffixLength += 1;
-    const varyingValues = group.map((tokens) =>
-      tokens.slice(prefixLength, tokens.length - suffixLength).join(" ")
-    );
-    if (varyingValues.some((value) => !value) || new Set(varyingValues).size < 2) continue;
-    families.push(varyingValues);
-  }
+  const families = declaredSingleSlotFamilies(requirementSegments);
   if (!families.length) return request;
   const requestedOperation = canonicalizeGeneratedIdentifier(operationId);
   request.operations = request.operations.map((operation) => {

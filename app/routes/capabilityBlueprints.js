@@ -27,7 +27,7 @@ const {
   isEntityPlan,
 } = require("./capabilityEntityPlan");
 const {
-  filterGeneratedOwnerInputRequirements,
+  filterGeneratedInputRequirements,
 } = require("./capabilityInputSemantics");
 
 const GENERIC_BLUEPRINT_ID = "entity.declarative.remote.v1";
@@ -312,7 +312,7 @@ function attachGeneratedInputs(rawBuildRequest, rawInputRequirements, { original
   if (rawInputRequirements != null && !Array.isArray(rawInputRequirements)) {
     throw new Error("compute entity inputRequirements must be an array");
   }
-  rawInputRequirements = filterGeneratedOwnerInputRequirements(
+  rawInputRequirements = filterGeneratedInputRequirements(
     initial,
     rawInputRequirements,
     originalUtterance
@@ -831,10 +831,14 @@ function validateImplementationBindings(implementation, buildRequest) {
       .filter((input) => input.required)
       .find((input) => {
       const escaped = String(input.name).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const usedByContextEffect = (operation.contextEffects || []).some((effect) =>
+        canonicalizeGeneratedIdentifier(effect?.subjectInput)
+          === canonicalizeGeneratedIdentifier(input.name)
+      );
       return !new RegExp(
         String.raw`\{\|(?:req=>body\.)?${escaped}(?:=>[^|{}]+)?\|\}`,
         "i"
-      ).test(actionText) && !isClosedSemanticSelector(input);
+      ).test(actionText) && !isClosedSemanticSelector(input) && !usedByContextEffect;
     });
     if (unused) {
       throw new Error(`compute entity implementation does not use required ordinary input ${unused.name}`);

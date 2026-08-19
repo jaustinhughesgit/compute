@@ -8,6 +8,7 @@ const {
   canonicalizeGeneratedIdentifier,
   normalizeContextBindingSubject,
 } = require("./capabilityManifest");
+const { declaredInvocationExamples } = require("./convertRequirements");
 
 const CURRENT_SPEAKER_IDS = new Set([
   "i",
@@ -552,10 +553,110 @@ function filterGeneratedOwnerInputRequirements(rawBuildRequest, rawGroups, origi
   });
 }
 
+function declaredSingleSlotFamilies(requirementSegments) {
+  const groups = new Map();
+  for (const text of declaredInvocationExamples(requirementSegments)) {
+    const tokens = String(text || "").toLowerCase().match(/[a-z0-9]+/g) || [];
+    if (!tokens.length) continue;
+    const group = groups.get(tokens.length) || [];
+    group.push(tokens);
+    groups.set(tokens.length, group);
+  }
+  const families = [];
+  for (const group of groups.values()) {
+    if (group.length < 2) continue;
+    let prefixLength = 0;
+    while (
+      prefixLength < group[0].length
+      && group.every((tokens) => tokens[prefixLength] === group[0][prefixLength])
+    ) prefixLength += 1;
+    let suffixLength = 0;
+    while (
+      suffixLength < group[0].length - prefixLength
+      && group.every((tokens) =>
+        tokens[tokens.length - 1 - suffixLength]
+          === group[0][group[0].length - 1 - suffixLength]
+      )
+    ) suffixLength += 1;
+    const values = group.map((tokens) =>
+      tokens.slice(prefixLength, tokens.length - suffixLength).join(" ")
+    );
+    if (values.some((value) => !value) || new Set(values).size < 2) continue;
+    families.push(values);
+  }
+  return families;
+}
+
+function filterGeneratedEffectInputRequirements(rawBuildRequest, rawGroups, originalUtterance = "") {
+  const buildRequest = clone(rawBuildRequest || {});
+  const requirementSegments = String(originalUtterance || "").split(/\n+/).filter(Boolean);
+  const families = declaredSingleSlotFamilies(requirementSegments);
+  if (!families.length) return Array.isArray(rawGroups) ? clone(rawGroups) : [];
+  return (Array.isArray(rawGroups) ? clone(rawGroups) : []).map((group) => {
+    if (!isObject(group)) return group;
+    const operationId = canonicalizeGeneratedIdentifier(group.operationId);
+    const operation = (buildRequest.operations || []).find((candidate) =>
+      canonicalizeGeneratedIdentifier(candidate?.operationId) === operationId
+    );
+    const effectSubjects = new Set((operation?.contextEffects || []).map((effect) =>
+      canonicalizeGeneratedIdentifier(effect?.subjectInput)
+    ).filter(Boolean));
+    if (effectSubjects.size !== 1) return group;
+    const [subjectInput] = effectSubjects;
+    const subjectValues = new Set((operation?.utteranceExamples || []).flatMap((example) => {
+      if (!isObject(example) || !isObject(example.inputs)) return [];
+      return Object.entries(example.inputs)
+        .filter(([name]) => canonicalizeGeneratedIdentifier(name) === subjectInput)
+        .map(([, value]) => String(value ?? "").trim().toLowerCase())
+        .filter(Boolean);
+    }));
+    if (!families.some((values) => values.every((value) => subjectValues.has(value)))) return group;
+    const existing = new Set((operation?.inputs || []).map((input) =>
+      canonicalizeGeneratedIdentifier(input?.name)
+    ).filter(Boolean));
+    const next = { ...group };
+    next.inputs = (Array.isArray(group.inputs) ? group.inputs : []).filter((input) => {
+      const name = canonicalizeGeneratedIdentifier(input?.name);
+      if (
+        !name
+        || existing.has(name)
+        || explicitInputDeclaration(requirementSegments, name)
+        || String(input?.bindingHint?.source || "utterance").toLowerCase() !== "utterance"
+      ) return true;
+      // One declared varying referent already owns the effect subject. Do not
+      // split that same surface into a second required specialization.
+      return false;
+    });
+    const retained = new Set(next.inputs.map((input) =>
+      canonicalizeGeneratedIdentifier(input?.name)
+    ));
+    next.utteranceExamples = (Array.isArray(group.utteranceExamples) ? group.utteranceExamples : [])
+      .map((example) => ({
+        ...example,
+        inputValues: (Array.isArray(example?.inputValues) ? example.inputValues : []).filter((item) => {
+          const name = canonicalizeGeneratedIdentifier(item?.name);
+          return existing.has(name) || retained.has(name);
+        }),
+      }));
+    return next;
+  });
+}
+
+function filterGeneratedInputRequirements(rawBuildRequest, rawGroups, originalUtterance = "") {
+  return filterGeneratedEffectInputRequirements(
+    rawBuildRequest,
+    filterGeneratedOwnerInputRequirements(rawBuildRequest, rawGroups, originalUtterance),
+    originalUtterance
+  );
+}
+
 module.exports = {
   explicitInputDeclaration,
   isCurrentSpeakerIdentifier,
   applyGeneratedAnswerPlan,
   normalizeGeneratedConvertOwnerBindings,
+  declaredSingleSlotFamilies,
   filterGeneratedOwnerInputRequirements,
+  filterGeneratedEffectInputRequirements,
+  filterGeneratedInputRequirements,
 };

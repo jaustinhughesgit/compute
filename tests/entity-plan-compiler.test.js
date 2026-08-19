@@ -182,6 +182,106 @@ test("EntityPlan compiles a browser-resolved ContextDB input without a provider 
   }]);
 });
 
+test("EntityPlan generation cannot split one declared effect referent into a required brand input", async () => {
+  const request = {
+    schemaVersion: 1,
+    kind: "computeCapabilityBuild",
+    capabilityIdHint: "vehicle_cleaner",
+    name: "Vehicle cleaner",
+    description: "Clean any user-selected vehicle.",
+    operations: [{
+      operationId: "wash",
+      description: "Clean the selected vehicle.",
+      inputs: [{
+        name: "vehicle",
+        type: "string",
+        required: true,
+        description: "The vehicle referent spoken by the user.",
+        bindingHint: { source: "utterance", resolver: "entity_reference" },
+        clarification: "Which vehicle should be cleaned?",
+      }],
+      outputs: [{ name: "status", type: "string", required: true, description: "The clean state." }],
+      contextEffects: [{
+        type: "contextdb.replace_object",
+        subjectInput: "vehicle",
+        currentValue: "dirty",
+        newValue: "clean",
+      }],
+      freshness: { mode: "none", ttlSeconds: 0 },
+      answerTemplate: "Your {{vehicle}} is clean",
+      utteranceExamples: [
+        { text: "wash my car", inputs: { vehicle: "car" } },
+        { text: "wash my Camry", inputs: { vehicle: "camry" } },
+        { text: "wash my Toyota", inputs: { vehicle: "toyota" } },
+      ],
+    }],
+  };
+  const result = await buildComputeEntitySpec({
+    capabilityRequest: request,
+    requestedBy: "u:test",
+    originalUtterance: [
+      "I can say wash my car, wash my Camry, or wash my Toyota, or wash my Toyota Camry.",
+      "I should be able to use any car, not just a Toyota Camry.",
+    ].join("\n"),
+    generatedImplementation: {
+      schemaVersion: 1,
+      name: "Vehicle cleaner",
+      provider: "local state transition",
+      inputRequirements: [{
+        operationId: "wash",
+        inputs: [{
+          name: "car_brand",
+          type: "string",
+          required: true,
+          description: "A model-invented specialization of the vehicle referent.",
+          bindingHint: {
+            source: "utterance",
+            subject: null,
+            property: null,
+            resolver: "string",
+            aliases: null,
+            value: null,
+          },
+          clarification: "Which brand?",
+          defaultValue: null,
+          validation: null,
+        }],
+        utteranceExamples: [{
+          text: "wash my Toyota",
+          inputValues: [{ name: "car_brand", value: "Toyota" }],
+        }],
+      }],
+      protectedAssetRequirements: [],
+      executionPlan: {
+        requests: [],
+        response: {
+          operationId: "wash",
+          outputs: [{
+            name: "status",
+            value: {
+              source: "literal",
+              requestId: null,
+              path: null,
+              inputName: null,
+              literal: "clean",
+              prefix: "",
+              suffix: "",
+            },
+          }],
+        },
+      },
+    },
+  });
+  assert.deepEqual(
+    result.computeEntity.manifest.operations[0].inputs.map((input) => input.name),
+    ["vehicle"]
+  );
+  assert.equal(
+    JSON.stringify(result.computeEntity.published.actions).includes("car_brand"),
+    false
+  );
+});
+
 test("a one-slot EntityPlan response adopts the contract's compatible output identity", async () => {
   const mismatched = plan({
     source: "input",
