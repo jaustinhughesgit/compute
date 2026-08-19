@@ -168,6 +168,36 @@ test("publication retries return the persisted acknowledgement without duplicate
   assert.equal(doc.items.size, count);
 });
 
+test("publication rejects a reused local id before it can merge unrelated entities", async () => {
+  const doc = memoryDocumentClient();
+  const handlers = installRuntime(doc);
+  const meta = { cookie: { e: "1" } };
+  const first = await handlers.get("contextGraphPublish")({
+    path: "/workspace-alice",
+    req: { body: publicationBody() },
+  }, meta);
+  assert.equal(first.ok, true);
+
+  const collision = publicationBody();
+  collision.idempotencyKey = "input-collision";
+  collision.userReferences = [];
+  collision.nodes = collision.nodes.map((node) => (
+    node.localId === "ent_4"
+      ? { localId: "ent_4", lemmas: ["2026-08-19T23:59:59-04:00"] }
+      : node
+  ));
+  const result = await handlers.get("contextGraphPublish")({
+    path: "/workspace-alice",
+    req: { body: collision },
+  }, meta);
+
+  assert.equal(result.ok, false);
+  assert.equal(result.error.code, "CONTEXT_LOCAL_ID_REUSED");
+  const passNode = first.response.nodes.find((node) => node.localId === "ent_4");
+  const stored = doc.items.get(`u:1\u001fnode#${passNode.serverId}`);
+  assert.deepEqual(stored.lemmas, ["pass"]);
+});
+
 test("authoritative ids remain stable when a later local mutation reuses acknowledged nodes", async () => {
   const doc = memoryDocumentClient();
   const handlers = installRuntime(doc, [{

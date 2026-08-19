@@ -827,7 +827,8 @@ function normalizeGeneratedBuildRequest(parsed, utterance, requestedBy, requirem
   );
   const transitionRepairedRequest = repairGeneratedContextEffectTransitions(
     ownerNormalizedRequest,
-    requirementSegments
+    requirementSegments,
+    recoveredAnswerPlan?.operationId
   );
   return {
     ...repairGeneratedEffectResponseTemplates(transitionRepairedRequest, requirementSegments),
@@ -835,11 +836,15 @@ function normalizeGeneratedBuildRequest(parsed, utterance, requestedBy, requirem
   };
 }
 
-function repairGeneratedContextEffectTransitions(rawRequest, requirementSegments = []) {
+function repairGeneratedContextEffectTransitions(rawRequest, requirementSegments = [], operationId = "") {
   const request = JSON.parse(JSON.stringify(rawRequest || {}));
   if (!Array.isArray(request.operations)) return request;
-  const transitions = (Array.isArray(requirementSegments) ? requirementSegments : [])
-    .flatMap((segment) => [...String(segment || "").matchAll(
+  const mutationSegments = (Array.isArray(requirementSegments) ? requirementSegments : [])
+    .filter((segment) => (
+      /\b(?:change|switch|update|set|mark|move|turn|replace|transition)\b/i.test(String(segment || ""))
+      && /\bfrom\b[\s\S]+\bto\b/i.test(String(segment || ""))
+    ));
+  const transitions = mutationSegments.flatMap((segment) => [...String(segment || "").matchAll(
       /\bfrom\s+["“‘']?([^,.;!?"”’']+?)["”’']?\s+to\s+["“‘']?([^,.;!?"”’']+?)["”’']?(?=$|[,.;!?])/gi
     )].map((match) => ({
       currentValue: String(match[1] || "").trim(),
@@ -850,9 +855,16 @@ function repairGeneratedContextEffectTransitions(rawRequest, requirementSegments
     `${transition.currentValue.toLowerCase()}\n${transition.newValue.toLowerCase()}`,
     transition,
   ])).values()];
-  request.operations = request.operations.map((operation) => ({
-    ...operation,
-    contextEffects: (Array.isArray(operation?.contextEffects) ? operation.contextEffects : []).map((effect) => {
+  const selectedOperation = canonicalizeGeneratedIdentifier(
+    operationId || request.answerPlan?.operationId || ""
+  );
+  let repairedSelectedOperation = false;
+  request.operations = request.operations.map((operation) => {
+    const selected = request.operations.length === 1 || (
+      selectedOperation
+      && canonicalizeGeneratedIdentifier(operation?.operationId) === selectedOperation
+    );
+    const effects = (Array.isArray(operation?.contextEffects) ? operation.contextEffects : []).map((effect) => {
       if (effect?.type !== "contextdb.replace_object") return effect;
       const currentValue = String(effect.currentValue || "").trim();
       const candidates = unique.filter((transition) =>
@@ -864,8 +876,37 @@ function repairGeneratedContextEffectTransitions(rawRequest, requirementSegments
         currentValue: currentValue || candidates[0].currentValue,
         newValue: String(effect.newValue || "").trim() || candidates[0].newValue,
       };
-    }),
-  }));
+    });
+    if (!selected || effects.length || unique.length !== 1) {
+      if (selected && effects.some((effect) => effect?.type === "contextdb.replace_object")) {
+        repairedSelectedOperation = true;
+      }
+      return { ...operation, contextEffects: effects };
+    }
+    const candidates = (Array.isArray(operation?.inputs) ? operation.inputs : []).filter((input) => (
+      input?.required !== false
+      && String(input?.type || "").toLowerCase() === "string"
+      && String(input?.bindingHint?.source || "utterance").toLowerCase() === "utterance"
+    ));
+    if (candidates.length !== 1) return { ...operation, contextEffects: effects };
+    repairedSelectedOperation = true;
+    return {
+      ...operation,
+      contextEffects: [{
+        type: "contextdb.replace_object",
+        subjectInput: String(candidates[0].name || "").trim(),
+        currentValue: unique[0].currentValue,
+        newValue: unique[0].newValue,
+      }],
+    };
+  });
+  if (mutationSegments.length && (!unique.length || unique.length > 1 || !repairedSelectedOperation)) {
+    const error = new Error(
+      "an explicit Convert state-transition requirement was not represented by one unambiguous ContextDB effect"
+    );
+    error.code = "CONTEXT_EFFECT_REQUIREMENT_UNSATISFIED";
+    throw error;
+  }
   return request;
 }
 

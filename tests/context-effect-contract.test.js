@@ -383,6 +383,63 @@ test("an explicit hard-stop transition repairs a missing generated new value", (
   assert.equal(repaired.operations[0].contextEffects[0].newValue, "clean");
 });
 
+test("an explicit hard-stop transition cannot disappear from a model-generated operation", () => {
+  const generated = carwashBuildRequest();
+  generated.operations[0].contextEffects = [];
+  generated.operations[0].inputs[0].bindingHint = {
+    source: "utterance",
+    aliases: ["car", "vehicle"],
+  };
+  const repaired = repairGeneratedContextEffectTransitions(generated, [
+    "It will switch my car from dirty to clean.",
+    "It will update the status from dirty to clean.",
+  ]);
+  assert.deepEqual(repaired.operations[0].contextEffects, [{
+    type: "contextdb.replace_object",
+    subjectInput: "vehicle",
+    currentValue: "dirty",
+    newValue: "clean",
+  }]);
+});
+
+test("an explicit hard-stop transition repairs only the answer-plan operation", () => {
+  const generated = carwashBuildRequest();
+  generated.operations[0].contextEffects = [];
+  generated.operations.push({
+    ...structuredClone(generated.operations[0]),
+    operationId: "inspect",
+    contextEffects: [],
+  });
+  const repaired = repairGeneratedContextEffectTransitions(generated, [
+    "Switch the selected asset from dirty to clean.",
+  ], "wash");
+  assert.equal(repaired.operations[0].contextEffects.length, 1);
+  assert.equal(repaired.operations[1].contextEffects.length, 0);
+});
+
+test("an ambiguous operation cannot silently approve an explicit mutation requirement", () => {
+  const generated = carwashBuildRequest();
+  generated.operations[0].contextEffects = [];
+  generated.operations[0].inputs.push({
+    name: "trailer",
+    type: "string",
+    required: true,
+    bindingHint: { source: "utterance" },
+  });
+  assert.throws(() => repairGeneratedContextEffectTransitions(generated, [
+    "Change the selected asset from dirty to clean.",
+  ]), (error) => error?.code === "CONTEXT_EFFECT_REQUIREMENT_UNSATISFIED");
+});
+
+test("a read-only conversion phrase does not imply a ContextDB mutation", () => {
+  const generated = carwashBuildRequest();
+  generated.operations[0].contextEffects = [];
+  const repaired = repairGeneratedContextEffectTransitions(generated, [
+    "Convert the temperature from Celsius to Fahrenheit.",
+  ]);
+  assert.deepEqual(repaired.operations[0].contextEffects, []);
+});
+
 test("a unique operation and output complete omitted answer-plan identifiers", () => {
   const generated = carwashBuildRequest();
   generated.operations[0].outputs = generated.operations[0].outputs.filter((output) => output.name === "state");

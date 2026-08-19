@@ -90,6 +90,25 @@ function normalizedNode(raw) {
   };
 }
 
+function nodeLabels(node) {
+  return new Set(uniqueStrings([
+    ...(Array.isArray(node?.lemmas) ? node.lemmas : []),
+    ...(Array.isArray(node?.names) ? node.names : []),
+  ]).map(normalizedLabel).filter(Boolean));
+}
+
+function compatiblePublishedNode(existing, incoming, expectedServerId) {
+  if (!existing || existing.recordType !== "node") return true;
+  if (text(existing.serverId, 180) !== text(expectedServerId, 180)) return false;
+  const existingReference = text(existing.protectedAssetReference, 220);
+  const incomingReference = text(incoming?.protectedAssetReference, 220);
+  if (existingReference || incomingReference) return existingReference === incomingReference;
+  const priorLabels = nodeLabels(existing);
+  const nextLabels = nodeLabels(incoming);
+  if (!priorLabels.size || !nextLabels.size) return true;
+  return Array.from(nextLabels).some((label) => priorLabels.has(label));
+}
+
 async function validateProtectedNodeReferences(nodes, principalId, documentClient) {
   const references = [...new Set((Array.isArray(nodes) ? nodes : [])
     .map((node) => node?.protectedAssetReference).filter(Boolean))];
@@ -637,6 +656,30 @@ function register({ on, use }) {
         userLabelsByNode.get(node.localId) || []
       ));
     }
+    // A temporary browser ID is an immutable publication identity. Older
+    // clients once restarted ent_N/rel_N after canonical acknowledgement,
+    // which could merge an unrelated word into an existing canonical node.
+    // Reject semantically incompatible reuse before either persistence layer
+    // is touched; legitimate refinements retain at least one prior lexeme.
+    for (const node of nodes) {
+      const mapping = await persistence.context.get(
+        ownerSyncAudience,
+        `map#${stableId("local", node.localId)}`
+      );
+      if (!mapping?.Item) continue;
+      const resolution = resolutions.get(node.localId);
+      const prior = await persistence.context.get(
+        ownerAudience,
+        `node#${text(mapping.Item.serverId, 180)}`
+      );
+      if (!compatiblePublishedNode(prior?.Item, node, resolution?.serverId)) {
+        return errorEnvelope(
+          "CONTEXT_LOCAL_ID_REUSED",
+          "A previously published local Context ID was reused for a different entity. Reset or upgrade the local allocator before retrying.",
+          409
+        );
+      }
+    }
     const assertedProfileName = declaredProfileName(nodes, relations, resolutions, principalId);
     const assertedProfile = assertedProfileName
       ? await registerCurrentProfile(principalId, workspace.subdomain, assertedProfileName, false)
@@ -958,5 +1001,6 @@ module.exports = {
     encodeCursor,
     decodeCursor,
     mergeHydrationGraphs,
+    compatiblePublishedNode,
   },
 };
