@@ -647,6 +647,45 @@ function register({ on, use }) {
             }
             claim = { ...claim, finalizeToken: finalization.finalizeToken };
             if (backgroundBuild.costTrace) modelCostTrace.push(backgroundBuild.costTrace);
+          } else if (background) {
+            const finalization = await buildCoordinator.beginFinalization(claim, {
+              jobId: `deterministic:${claim.buildId}`,
+            });
+            if (!finalization.acquired) {
+              let finalizedManifest = null;
+              if (
+                finalization.record?.capabilityBuildStatus === "completed"
+                && finalization.record?.capabilityEntityId
+              ) {
+                finalizedManifest = await capabilityRegistry.getByEntity(
+                  finalization.record.capabilityEntityId,
+                  { includeInactive: true }
+                );
+              }
+              return capabilityStateResponse({
+                status: finalizedManifest
+                  ? "BUILT_AND_REGISTERED"
+                  : finalization.record?.capabilityBuildStatus === "failed"
+                  ? "BUILD_FAILED"
+                  : "BUILD_PENDING",
+                manifest: finalizedManifest,
+                buildId: claim.buildId,
+                record: finalization.record,
+                backgroundJob: finalization.record?.capabilityBuildStatus === "building" ? {
+                  kind: "computeDeterministicBuild",
+                  jobId: claim.buildId,
+                  status: "finalizing",
+                  retryAfterMs: 2_000,
+                } : null,
+                reason: finalization.record?.capabilityBuildStatus === "failed"
+                  ? failureReason(finalization.record)
+                  : finalizedManifest
+                  ? "The deterministic capability build completed and was registered."
+                  : "Another Lambda is materializing this deterministic capability build.",
+                artifacts: finalization.record?.capabilityBuildArtifacts,
+              });
+            }
+            claim = { ...claim, finalizeToken: finalization.finalizeToken };
           }
           computeSpec = await buildComputeEntitySpec({
             capabilityRequest: capabilityBuildRequest,

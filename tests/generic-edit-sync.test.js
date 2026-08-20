@@ -86,6 +86,8 @@ test("Convert uses generic discovery, reuse, extension, and model-built entity p
   assert.match(source, /status:\s*"CAPABILITY_BUILD_REQUIRED"/);
   assert.match(source, /status:\s*"BUILD_RETRY_REQUIRED"/);
   assert.match(source, /pendingStartedAt:\s*claim\.record\?\.capabilityBuildStartedAt/);
+  assert.match(source, /kind:\s*"computeDeterministicBuild"/);
+  assert.match(source, /Another Lambda is materializing this deterministic capability build/);
   assert.match(source, /generationAttemptLimit/);
   assert.match(source, /buildComputeCapability === true/);
   assert.match(source, /capabilityBuildId === buildId/);
