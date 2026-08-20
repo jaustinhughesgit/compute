@@ -1060,10 +1060,11 @@ async function startComputeEntitySpecBackground({
 
 async function retrieveComputeEntitySpecBackground({
   jobId,
+  pendingStartedAt = null,
   retrieveResponse = retrieveBackgroundResponse,
 } = {}) {
   const response = await retrieveResponse(jobId);
-  const state = backgroundResponseState(response);
+  const state = backgroundResponseState(response, { pendingStartedAt });
   if (state.pending) {
     return {
       kind: "computeEntityBuildBackground",

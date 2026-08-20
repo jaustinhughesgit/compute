@@ -92,10 +92,13 @@ function responseCreatedAtMs(response) {
 function backgroundResponseState(response, {
   nowMs = Date.now(),
   maxPendingAgeMs = DEFAULT_MAX_PENDING_AGE_MS,
+  pendingStartedAt = null,
 } = {}) {
   const status = cleanText(response?.status, 80).toLowerCase() || "unknown";
   if (PENDING_STATUSES.has(status)) {
-    const createdAtMs = responseCreatedAtMs(response);
+    const createdAtMs = pendingStartedAt == null
+      ? responseCreatedAtMs(response)
+      : responseCreatedAtMs({ created_at: pendingStartedAt });
     if (!Number.isFinite(createdAtMs)) {
       const error = new Error("OpenAI pending response omitted its required creation timestamp");
       error.code = "OPENAI_BACKGROUND_RESPONSE_TIMESTAMP_MISSING";

@@ -581,7 +581,10 @@ function register({ on, use }) {
         try {
           if (background && !hasDeclaredDeterministicImplementation(capabilityBuildRequest)) {
             backgroundBuild = backgroundJobId
-              ? await retrieveComputeEntitySpecBackground({ jobId: backgroundJobId })
+              ? await retrieveComputeEntitySpecBackground({
+                  jobId: backgroundJobId,
+                  pendingStartedAt: claim.record?.capabilityBuildStartedAt || null,
+                })
               : await startComputeEntitySpecBackground({
                   capabilityRequest: capabilityBuildRequest,
                   originalUtterance,

@@ -362,6 +362,24 @@ test("a model response cannot remain pending beyond the bounded job lifetime", (
   );
 });
 
+test("the server-owned build start overrides a provider timestamp that moves forward", () => {
+  const nowMs = Date.UTC(2026, 7, 20, 12, 0, 0);
+  assert.throws(
+    () => backgroundResponseState({
+      status: "in_progress",
+      created_at: nowMs / 1_000,
+    }, {
+      nowMs,
+      pendingStartedAt: new Date(nowMs - DEFAULT_MAX_PENDING_AGE_MS - 1).toISOString(),
+    }),
+    (error) => {
+      assert.equal(error.code, "OPENAI_BACKGROUND_RESPONSE_STALLED");
+      assert.equal(error.status, 408);
+      return true;
+    }
+  );
+});
+
 test("pending response timestamps accept seconds, milliseconds, and ISO forms", () => {
   const nowMs = Date.UTC(2026, 7, 20, 12, 0, 0);
   assert.equal(backgroundResponseState({
