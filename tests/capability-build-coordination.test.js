@@ -150,7 +150,7 @@ test("the finalizer lease outlives the deployed Lambda materialization window", 
     "utf8"
   );
   const timeout = Number(template.match(/Globals:[\s\S]*?Function:[\s\S]*?Timeout:\s*(\d+)/)?.[1]);
-  assert.equal(timeout, 180);
+  assert.equal(timeout, 80);
   assert.ok(DEFAULT_FINALIZE_LEASE_SECONDS > timeout);
 });
 

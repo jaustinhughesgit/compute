@@ -39,7 +39,7 @@ Globals:
     # API relays may stop waiting earlier, but a leased capability finalizer
     # must have time to finish Shorthand materialization and durable indexing.
     # Provider requests retain their own much smaller runtime bounds.
-    Timeout: 180
+    Timeout: 80
     Tracing: Active
   Api:
     TracingEnabled: true

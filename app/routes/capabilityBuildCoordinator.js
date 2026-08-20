@@ -8,7 +8,7 @@ const crypto = require("node:crypto");
 
 const DEFAULT_TABLE = process.env.SUBDOMAINS_TABLE || "subdomains";
 const DEFAULT_LEASE_SECONDS = 120;
-const DEFAULT_FINALIZE_LEASE_SECONDS = 210;
+const DEFAULT_FINALIZE_LEASE_SECONDS = 85;
 const MAX_BUILD_ARTIFACT_BYTES = 192 * 1024;
 
 function promiseOf(request) {
