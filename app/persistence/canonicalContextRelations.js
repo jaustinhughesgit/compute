@@ -60,6 +60,22 @@ function addRelationRecords({ relation, ownerId, workspaceSu, timestamp, shards,
     records.projections.set(`${projection.pk}\u001f${projection.sk}`, projection);
     addGrant(records.grants, relation.serverId, grantPrincipal(audienceId), ownerId, timestamp);
   }
+  const activeAudienceIds = new Set(relation.audienceIds || [`u:${ownerId}`]);
+  for (const audienceId of relation.revokedAudienceIds || []) {
+    if (!audienceId || activeAudienceIds.has(audienceId)) continue;
+    const shard = shardFor(relation.serverId, shards.audience);
+    const projection = {
+      pk: audiencePartition(audienceId, shard, shards.audience),
+      sk: `RELATION#${relation.serverId}`,
+      recordType: "audience-relation",
+      audienceId,
+      canonicalId: relation.serverId,
+      canonicalVersion: version,
+      tombstone: true,
+      updatedAt: timestamp,
+    };
+    records.projections.set(`${projection.pk}\u001f${projection.sk}`, projection);
+  }
 }
 
 module.exports = { addRelationRecords };

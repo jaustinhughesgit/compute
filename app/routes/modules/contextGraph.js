@@ -704,6 +704,67 @@ function register({ on, use }) {
         }
       }
     }
+
+    // A mutation delta normally carries only the rewired relation and its
+    // three endpoint nodes, not the older speaker-to-subject path that first
+    // established the relation's public audience. Preserve that established
+    // audience only when the same publisher keeps the same relation subject
+    // and predicate, then promote every new endpoint into that audience. This
+    // keeps hydration closed over relation endpoints without treating a
+    // client-supplied label or a changed relation scope as authority.
+    const relationPublicationPlans = new Map();
+    for (const relation of relations) {
+      const subject = resolutions.get(relation.subjectLocalId).serverId;
+      const predicate = resolutions.get(relation.predicateLocalId).serverId;
+      const object = resolutions.get(relation.objectLocalId).serverId;
+      const acknowledgedRelation = /^rel_[a-f0-9]{32}$/.test(relation.localId)
+        ? await persistence.context.get(ownerAudience, `relation#${relation.localId}`)
+        : null;
+      const serverId = acknowledgedRelation?.Item?.recordType === "relation"
+        && acknowledgedRelation.Item.publisherId === principalId
+        && text(acknowledgedRelation.Item.serverId, 180) === relation.localId
+        ? relation.localId
+        : stableId("rel", principalId, relation.localId);
+      const existingRelation = acknowledgedRelation?.Item?.recordType === "relation"
+        ? acknowledgedRelation
+        : await persistence.context.get(ownerAudience, `relation#${serverId}`);
+      const previousAudienceIds = Array.isArray(existingRelation?.Item?.audienceIds)
+        ? existingRelation.Item.audienceIds : [];
+      const derivedAudienceIds = audiencesByNode.get(relation.subjectLocalId) || [ownerAudience];
+      const stablePublishedScope = relation.tombstone !== true
+        && existingRelation?.Item?.recordType === "relation"
+        && existingRelation.Item.publisherId === principalId
+        && text(existingRelation.Item.subject, 180) === subject
+        && text(existingRelation.Item.predicate, 180) === predicate
+        && existingRelation.Item.tombstone !== true;
+      const currentAudienceIds = Array.from(new Set([
+        ...derivedAudienceIds,
+        ...(stablePublishedScope ? previousAudienceIds : []),
+      ])).sort();
+
+      relationPublicationPlans.set(relation.localId, {
+        subject,
+        predicate,
+        object,
+        serverId,
+        existingRelation,
+        previousAudienceIds,
+        currentAudienceIds,
+      });
+      if (relation.tombstone !== true) {
+        for (const localId of [
+          relation.subjectLocalId,
+          relation.predicateLocalId,
+          relation.objectLocalId,
+        ]) {
+          const nodeAudienceIds = audiencesByNode.get(localId) || [ownerAudience];
+          audiencesByNode.set(localId, Array.from(new Set([
+            ...nodeAudienceIds,
+            ...currentAudienceIds,
+          ])).sort());
+        }
+      }
+    }
     const now = new Date().toISOString();
     const source = {
       requestId: text(body?.source?.requestId, 180) || null,
@@ -773,18 +834,16 @@ function register({ on, use }) {
 
     const relationAcks = [];
     for (const relation of relations) {
-      const subject = resolutions.get(relation.subjectLocalId).serverId;
-      const predicate = resolutions.get(relation.predicateLocalId).serverId;
-      const object = resolutions.get(relation.objectLocalId).serverId;
-      const acknowledgedRelation = /^rel_[a-f0-9]{32}$/.test(relation.localId)
-        ? await persistence.context.get(ownerAudience, `relation#${relation.localId}`)
-        : null;
-      const serverId = acknowledgedRelation?.Item?.recordType === "relation"
-        && acknowledgedRelation.Item.publisherId === principalId
-        && text(acknowledgedRelation.Item.serverId, 180) === relation.localId
-        ? relation.localId
-        : stableId("rel", principalId, relation.localId);
-      const currentAudienceIds = audiencesByNode.get(relation.subjectLocalId) || [ownerAudience];
+      const publicationPlan = relationPublicationPlans.get(relation.localId);
+      const {
+        subject,
+        predicate,
+        object,
+        serverId,
+        existingRelation,
+        previousAudienceIds,
+        currentAudienceIds,
+      } = publicationPlan;
       const publicRecord = !!publicAudience && currentAudienceIds.includes(publicAudience);
       const relationPayload = {
         serverId,
@@ -796,23 +855,21 @@ function register({ on, use }) {
         tombstone: relation.tombstone,
       };
       const relationPayloadHash = payloadHash(relationPayload);
-      const existingRelation = await persistence.context.get(
-        ownerAudience,
-        `relation#${serverId}`
-      );
-      const previousAudienceIds = Array.isArray(existingRelation?.Item?.audienceIds)
-        ? existingRelation.Item.audienceIds : [];
       const audienceIds = Array.from(new Set([
         ...currentAudienceIds,
-        ...(relation.tombstone ? previousAudienceIds : []),
+        ...previousAudienceIds,
       ])).sort();
+      const revokedAudienceIds = previousAudienceIds.filter((audienceId) => (
+        !currentAudienceIds.includes(audienceId)
+      ));
       const relationVersion = existingRelation?.Item?.payloadHash === relationPayloadHash
         ? Number(existingRelation.Item.version || 1)
         : Math.max(1, Number(existingRelation?.Item?.version || 0) + 1);
       const canonicalRelation = {
         recordType: "relation",
         publisherId: principalId,
-        audienceIds,
+        audienceIds: currentAudienceIds,
+        revokedAudienceIds,
         ...relationPayload,
         payloadHash: relationPayloadHash,
         version: relationVersion,

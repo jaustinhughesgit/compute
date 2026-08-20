@@ -66,7 +66,8 @@ function createCanonicalContextStore({ persistence, env = process.env, now = () 
     const page = await readProjectionPage(audienceId, options);
     const principalID = grantPrincipal(audienceId);
     const candidates = page.items.filter((item) => (
-      item?.recordType === "audience-node" || item?.recordType === "audience-relation"
+      item?.tombstone !== true
+      && (item?.recordType === "audience-node" || item?.recordType === "audience-relation")
     ));
     const grants = principalID
       ? await persistence.authorization.batchGetGrants(candidates.map((item) => ({

@@ -4,6 +4,8 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const { register, __test } = require("../app/routes/modules/contextGraph");
+const { createCanonicalPersistence } = require("../app/persistence/canonicalPersistence");
+const { memoryClient } = require("./helpers/canonical-memory-client");
 
 function memoryDocumentClient() {
   const items = new Map();
@@ -40,7 +42,7 @@ function memoryDocumentClient() {
   };
 }
 
-function installRuntime(doc, profiles = []) {
+function installRuntime(doc, profiles = [], canonicalPersistence = null) {
   const handlers = new Map();
   for (const profile of profiles) {
     doc.items.set(`${profile.audienceId}\u001fprofile#self`, structuredClone(profile));
@@ -53,6 +55,9 @@ function installRuntime(doc, profiles = []) {
     on: (name, handler) => handlers.set(name, handler),
     use: () => ({
       getDocClient: () => doc,
+      ...(canonicalPersistence
+        ? { getCanonicalPersistence: () => canonicalPersistence }
+        : {}),
       getSub: async (value, field) => ({ Items: field === "su" && workspaces[value] ? [workspaces[value]] : [] }),
       getWord: async (value) => ({ Items: [{ r: value === "word-amy" ? "Amy" : "Alice" }] }),
     }),
@@ -488,6 +493,116 @@ test("a repeated exact named hydration returns facts published after the first h
   assert.ok(refreshed.response.relations.some((relation) => (
     relation.subject === "usr_1" && relation.object === catObservation.serverId
   )));
+});
+
+test("a public relation rewire publishes its new value node with the established audience", async () => {
+  const doc = memoryDocumentClient();
+  const canonicalPersistence = createCanonicalPersistence({
+    documentClient: memoryClient(),
+    tableNames: { canonicalProjections: "canonical_projection" },
+  });
+  const handlers = installRuntime(doc, [], canonicalPersistence);
+  const owner = { cookie: { e: "1" } };
+  const reader = { cookie: { e: "2" } };
+
+  const initial = await handlers.get("contextGraphPublish")({
+    path: "/workspace-alice",
+    req: { body: {
+      schemaVersion: 1,
+      idempotencyKey: "public-car-dirty-1",
+      source: { sentence: "My car is dirty and my name is Austin." },
+      nodes: [
+        { localId: "speaker", lemmas: ["speaker"] },
+        { localId: "have", lemmas: ["have"] },
+        { localId: "car", lemmas: ["car"], names: ["Toyota Camry"] },
+        { localId: "condition", lemmas: ["condition"] },
+        { localId: "dirty", lemmas: ["dirty"] },
+        { localId: "name", lemmas: ["name"] },
+        { localId: "austin", lemmas: ["austin"], names: ["Austin"] },
+      ],
+      relations: [
+        { localId: "speaker-car", subjectLocalId: "speaker", predicateLocalId: "have", objectLocalId: "car" },
+        { localId: "car-condition", subjectLocalId: "car", predicateLocalId: "condition", objectLocalId: "dirty" },
+        { localId: "speaker-name", subjectLocalId: "speaker", predicateLocalId: "name", objectLocalId: "austin" },
+      ],
+    } },
+  }, owner);
+  assert.equal(initial.ok, true);
+  const nodeIds = Object.fromEntries(initial.response.nodes.map((node) => [node.localId, node.serverId]));
+  const relationIds = Object.fromEntries(initial.response.relations.map((relation) => [relation.localId, relation.serverId]));
+
+  const rewired = await handlers.get("contextGraphPublish")({
+    path: "/workspace-alice",
+    req: { body: {
+      schemaVersion: 1,
+      idempotencyKey: "public-car-clean-1",
+      source: { sentence: "Wash my car." },
+      nodes: [
+        { localId: nodeIds.car, lemmas: ["car"], names: ["Toyota Camry"] },
+        { localId: nodeIds.condition, lemmas: ["condition"] },
+        { localId: "clean", lemmas: ["clean"] },
+      ],
+      relations: [
+        {
+          localId: relationIds["car-condition"],
+          subjectLocalId: nodeIds.car,
+          predicateLocalId: nodeIds.condition,
+          objectLocalId: "clean",
+        },
+      ],
+    } },
+  }, owner);
+  assert.equal(rewired.ok, true);
+  const cleanId = rewired.response.nodes.find((node) => node.localId === "clean").serverId;
+
+  const hydrated = await handlers.get("contextGraphHydrateNamed")({
+    path: "/workspace-amy",
+    req: { body: { schemaVersion: 1, query: "Austin" } },
+  }, reader);
+  assert.equal(hydrated.ok, true);
+  const condition = hydrated.response.relations.find((relation) => (
+    relation.serverId === relationIds["car-condition"]
+  ));
+  assert.equal(condition.object, cleanId);
+  assert.deepEqual(
+    hydrated.response.nodes.find((node) => node.serverId === cleanId)?.lemmas,
+    ["clean"]
+  );
+  const hydratedNodeIds = new Set(hydrated.response.nodes.map((node) => node.serverId));
+  assert.equal(hydratedNodeIds.has(condition.subject), true);
+  assert.equal(hydratedNodeIds.has(condition.predicate), true);
+  assert.equal(hydratedNodeIds.has(condition.object), true);
+
+  const changedScope = await handlers.get("contextGraphPublish")({
+    path: "/workspace-alice",
+    req: { body: {
+      schemaVersion: 1,
+      idempotencyKey: "private-car-state-1",
+      source: { sentence: "Change the relation scope." },
+      nodes: [
+        { localId: nodeIds.car, lemmas: ["car"], names: ["Toyota Camry"] },
+        { localId: "private-state", lemmas: ["private state"] },
+        { localId: cleanId, lemmas: ["clean"] },
+      ],
+      relations: [
+        {
+          localId: relationIds["car-condition"],
+          subjectLocalId: nodeIds.car,
+          predicateLocalId: "private-state",
+          objectLocalId: cleanId,
+        },
+      ],
+    } },
+  }, owner);
+  assert.equal(changedScope.ok, true);
+
+  const afterScopeChange = await handlers.get("contextGraphHydrateNamed")({
+    path: "/workspace-amy",
+    req: { body: { schemaVersion: 1, query: "Austin" } },
+  }, reader);
+  assert.equal(afterScopeChange.response.relations.some((relation) => (
+    relation.serverId === relationIds["car-condition"] && relation.tombstone !== true
+  )), false);
 });
 
 test("owned protected placeholders hydrate by name without publishing plaintext", async () => {
