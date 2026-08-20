@@ -76,16 +76,34 @@ function responseOutputText(response) {
   return "";
 }
 
+function responseCreatedAtMs(response) {
+  const value = response?.created_at;
+  const numeric = Number(value);
+  if (Number.isFinite(numeric) && numeric > 0) {
+    return numeric < 10_000_000_000 ? numeric * 1_000 : numeric;
+  }
+  if (typeof value === "string") {
+    const parsed = Date.parse(value);
+    if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  }
+  return null;
+}
+
 function backgroundResponseState(response, {
   nowMs = Date.now(),
   maxPendingAgeMs = DEFAULT_MAX_PENDING_AGE_MS,
 } = {}) {
   const status = cleanText(response?.status, 80).toLowerCase() || "unknown";
   if (PENDING_STATUSES.has(status)) {
-    const createdAtMs = Number(response?.created_at) * 1_000;
-    const pendingAgeMs = Number.isFinite(createdAtMs) && createdAtMs > 0
-      ? Math.max(0, Number(nowMs) - createdAtMs)
-      : null;
+    const createdAtMs = responseCreatedAtMs(response);
+    if (!Number.isFinite(createdAtMs)) {
+      const error = new Error("OpenAI pending response omitted its required creation timestamp");
+      error.code = "OPENAI_BACKGROUND_RESPONSE_TIMESTAMP_MISSING";
+      error.status = 502;
+      error.pendingStatus = status;
+      throw error;
+    }
+    const pendingAgeMs = Math.max(0, Number(nowMs) - createdAtMs);
     if (
       Number.isFinite(pendingAgeMs)
       && Number.isFinite(Number(maxPendingAgeMs))
@@ -127,6 +145,7 @@ function backgroundResponseState(response, {
 module.exports = {
   RESPONSE_ID_PATTERN,
   DEFAULT_MAX_PENDING_AGE_MS,
+  responseCreatedAtMs,
   requestOpenAiResponse,
   startBackgroundResponse,
   retrieveBackgroundResponse,

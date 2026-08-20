@@ -14,6 +14,7 @@ const {
 const {
   DEFAULT_MAX_PENDING_AGE_MS,
   backgroundResponseState,
+  responseCreatedAtMs,
 } = require("../app/routes/openAiBackgroundResponse");
 
 const buildRequest = {
@@ -65,7 +66,11 @@ test("fresh Lambdas can retrieve pending and completed discovery responses", asy
   const pending = await retrieveComputeCapabilityDiscovery({
     jobId: "resp_discovery_123",
     utterance: "Look up the value",
-    retrieveResponse: async () => ({ id: "resp_discovery_123", status: "in_progress" }),
+    retrieveResponse: async () => ({
+      id: "resp_discovery_123",
+      status: "in_progress",
+      created_at: Date.now() / 1_000,
+    }),
   });
   assert.equal(pending.pending, true);
   assert.equal(pending.status, "in_progress");
@@ -279,7 +284,11 @@ test("background entity generation returns JSON for server validation after poll
 
   const pending = await retrieveComputeEntitySpecBackground({
     jobId: started.jobId,
-    retrieveResponse: async () => ({ id: started.jobId, status: "queued" }),
+    retrieveResponse: async () => ({
+      id: started.jobId,
+      status: "queued",
+      created_at: Date.now() / 1_000,
+    }),
   });
   assert.equal(pending.pending, true);
 
@@ -353,13 +362,33 @@ test("a model response cannot remain pending beyond the bounded job lifetime", (
   );
 });
 
-test("a recent or timestamp-free pending response remains resumable", () => {
+test("pending response timestamps accept seconds, milliseconds, and ISO forms", () => {
   const nowMs = Date.UTC(2026, 7, 20, 12, 0, 0);
   assert.equal(backgroundResponseState({
     status: "queued",
     created_at: (nowMs - DEFAULT_MAX_PENDING_AGE_MS) / 1_000,
   }, { nowMs }).pending, true);
-  assert.equal(backgroundResponseState({ status: "in_progress" }, { nowMs }).pending, true);
+  assert.equal(backgroundResponseState({
+    status: "in_progress",
+    created_at: nowMs - 1_000,
+  }, { nowMs }).pending, true);
+  assert.equal(backgroundResponseState({
+    status: "in_progress",
+    created_at: new Date(nowMs - 1_000).toISOString(),
+  }, { nowMs }).pending, true);
+  assert.equal(responseCreatedAtMs({ created_at: nowMs / 1_000 }), nowMs);
+  assert.equal(responseCreatedAtMs({ created_at: nowMs }), nowMs);
+});
+
+test("a timestamp-free pending response fails retryably instead of polling forever", () => {
+  assert.throws(
+    () => backgroundResponseState({ status: "in_progress" }),
+    (error) => {
+      assert.equal(error.code, "OPENAI_BACKGROUND_RESPONSE_TIMESTAMP_MISSING");
+      assert.equal(error.status, 502);
+      return true;
+    }
+  );
 });
 
 test("a provider build retry may research only the selected official provider domains", () => {
