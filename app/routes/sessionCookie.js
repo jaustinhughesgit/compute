@@ -47,6 +47,26 @@ function prepareFreshBrowserIdentity(ctx) {
   return true;
 }
 
+function installFreshBrowserIdentityCookies(ctx, cookie) {
+  if (!isFreshBrowserIdentityRequest(ctx) || !cookie?.ak) return false;
+  const remainingMs = Number.isFinite(Number(cookie.ex))
+    ? Math.max(1_000, (Number(cookie.ex) * 1_000) - Date.now())
+    : 86_400_000;
+  const options = {
+    path: "/",
+    maxAge: remainingMs,
+    httpOnly: true,
+    secure: true,
+    sameSite: "none",
+  };
+  // Some browsers retain an older API-host cookie even after receiving its
+  // expiry header. Rotate both scopes to the same principal so cookie ordering
+  // can never select an identity that disagrees with the returned workspace.
+  ctx.res?.cookie?.("accessToken", cookie.ak, options);
+  ctx.res?.cookie?.("accessToken", cookie.ak, { ...options, domain: ".1var.com" });
+  return true;
+}
+
 function propagateAuthenticatedCookie(ctx, cookie, dispatchMeta = null) {
   if (!ctx?.req || !cookie || typeof cookie !== "object") return false;
   ctx.cookie = cookie;
@@ -75,5 +95,6 @@ module.exports = {
   cookieRecordFromQuery,
   isFreshBrowserIdentityRequest,
   prepareFreshBrowserIdentity,
+  installFreshBrowserIdentityCookies,
   propagateAuthenticatedCookie,
 };

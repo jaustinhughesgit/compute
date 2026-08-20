@@ -6,6 +6,7 @@ const {
   cookieRecordFromQuery,
   isFreshBrowserIdentityRequest,
   prepareFreshBrowserIdentity,
+  installFreshBrowserIdentityCookies,
   propagateAuthenticatedCookie,
 } = require("../app/routes/sessionCookie");
 
@@ -93,4 +94,26 @@ test("fresh browser bootstrap removes stale host and domain identity cookies", (
   assert.equal(cleared.length, 2);
   assert.equal(cleared[0][1].domain, undefined);
   assert.equal(cleared[1][1].domain, ".1var.com");
+});
+
+test("fresh browser bootstrap rotates host and domain scopes to one principal", () => {
+  const installed = [];
+  const ctx = {
+    path: "/newUser/newUser",
+    req: { body: { freshBrowserIdentity: true } },
+    res: { cookie: (...args) => installed.push(args) },
+  };
+  assert.equal(installFreshBrowserIdentityCookies(ctx, {
+    ak: "replacement-token",
+    ex: Math.floor(Date.now() / 1000) + 3600,
+  }), true);
+  assert.equal(installed.length, 2);
+  assert.deepEqual(installed.map(([name, value]) => [name, value]), [
+    ["accessToken", "replacement-token"],
+    ["accessToken", "replacement-token"],
+  ]);
+  assert.equal(installed[0][2].domain, undefined);
+  assert.equal(installed[1][2].domain, ".1var.com");
+  assert.equal(installed[0][2].httpOnly, true);
+  assert.equal(installed[1][2].sameSite, "none");
 });

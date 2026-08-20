@@ -10,6 +10,7 @@ const util = require("util");
 const { createShared } = require("./shared");
 const {
   prepareFreshBrowserIdentity,
+  installFreshBrowserIdentityCookies,
   propagateAuthenticatedCookie,
 } = require("./sessionCookie");
 
@@ -68,6 +69,7 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, 
       ctx.res
     );
 
+    if (freshBrowserIdentity) installFreshBrowserIdentityCookies(ctx, ck);
     propagateAuthenticatedCookie(ctx, ck, dispatchMeta);
   });
 
