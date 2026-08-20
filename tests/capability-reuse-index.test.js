@@ -103,6 +103,44 @@ test("public capability positioning writes tenant and global v2 postings", async
   assert.equal(position.contractHash, createCapabilitySignature(manifest()).contractHash);
 });
 
+test("reusable registration retries Position and cannot acknowledge an unindexed manifest", async () => {
+  const dynamodb = {
+    get: () => ({ promise: async () => ({ Item: { su: "entity-add", z: true } }) }),
+    update: () => ({ promise: async () => ({}) }),
+  };
+  let attempts = 0;
+  const registry = createCapabilityRegistry({
+    dynamodb,
+    indexCapability: async () => {
+      attempts += 1;
+      if (attempts === 1) throw new Error("temporary embedding failure");
+      return { indexed: true, postings: 2 };
+    },
+  });
+  const registered = await registry.register(manifest(), {
+    ownerId: "u:10",
+    requireIndex: true,
+    indexAttempts: 3,
+    indexRetryDelayMs: 0,
+  });
+  assert.equal(registered.entityId, "entity-add");
+  assert.equal(attempts, 2);
+
+  const unavailable = createCapabilityRegistry({
+    dynamodb,
+    indexCapability: async () => ({ indexed: false, reason: "ADDRESS_NOT_FOUND" }),
+  });
+  await assert.rejects(
+    unavailable.register(manifest(), {
+      ownerId: "u:10",
+      requireIndex: true,
+      indexAttempts: 2,
+      indexRetryDelayMs: 0,
+    }),
+    (error) => error?.code === "CAPABILITY_INDEX_UNAVAILABLE" && error?.retryable === true
+  );
+});
+
 test("indexed discovery reloads only Search candidates and never scans after an empty indexed result", async () => {
   let scans = 0;
   let ids = null;

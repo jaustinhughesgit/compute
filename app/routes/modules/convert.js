@@ -1358,7 +1358,7 @@ function subdomains(domain){
           try {
             capabilityManifest = await preparedCapabilityBuild.registry.register(
               capabilityManifest,
-              { ownerId }
+              { ownerId, requireIndex: true }
             );
             capabilityRegistration = { ok: true, registered: true };
             try {

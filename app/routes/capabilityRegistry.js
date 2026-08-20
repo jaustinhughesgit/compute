@@ -97,7 +97,14 @@ function migrateStoredManifest(raw) {
   return manifest;
 }
 
-function createCapabilityRegistry({ dynamodb, persistence = null, s3 = null, openai = null, tableName = DEFAULT_TABLE } = {}) {
+function createCapabilityRegistry({
+  dynamodb,
+  persistence = null,
+  s3 = null,
+  openai = null,
+  tableName = DEFAULT_TABLE,
+  indexCapability = indexCapabilityManifest,
+} = {}) {
   if (!dynamodb) throw new Error("capability registry requires a DynamoDB DocumentClient");
 
   async function getEntityRecord(entityId) {
@@ -113,7 +120,13 @@ function createCapabilityRegistry({ dynamodb, persistence = null, s3 = null, ope
     return !includeInactive && manifest.status !== "active" ? null : manifest;
   }
 
-  async function register(rawManifest, { ownerId = "system", allowOwnerOverride = false } = {}) {
+  async function register(rawManifest, {
+    ownerId = "system",
+    allowOwnerOverride = false,
+    requireIndex = false,
+    indexAttempts = 3,
+    indexRetryDelayMs = 250,
+  } = {}) {
     const entityId = String(rawManifest?.entityId || "").trim();
     const existing = await getEntityRecord(entityId);
     if (!existing) throw new CapabilityError("ENTITY_NOT_FOUND", `Compute entity ${entityId || "(blank)"} does not exist`);
@@ -155,16 +168,43 @@ function createCapabilityRegistry({ dynamodb, persistence = null, s3 = null, ope
         ":capabilityContractHash": signature.contractHash,
       },
     }));
-    try {
-      await indexCapabilityManifest({ manifest: normalized, signature, persistence, s3, openai });
-    } catch (error) {
-      // Position is a rebuildable projection. Preserve the canonical manifest
-      // and surface the indexing failure in logs for backfill/repair.
+    const maximumIndexAttempts = requireIndex
+      ? Math.max(1, Math.min(5, Number(indexAttempts || 3)))
+      : 1;
+    let indexResult = null;
+    let indexFailure = null;
+    for (let attempt = 1; attempt <= maximumIndexAttempts; attempt += 1) {
+      try {
+        indexResult = await indexCapability({ manifest: normalized, signature, persistence, s3, openai });
+        if (indexResult?.indexed === true) break;
+        indexFailure = new CapabilityError(
+          "CAPABILITY_INDEX_UNAVAILABLE",
+          `Capability Position was not installed: ${String(indexResult?.reason || "INDEX_NOT_ACKNOWLEDGED")}`
+        );
+      } catch (error) {
+        indexFailure = error instanceof Error ? error : new Error(String(error || "Capability indexing failed"));
+      }
+      if (attempt < maximumIndexAttempts && indexRetryDelayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, Math.min(2_000, Number(indexRetryDelayMs)) * attempt));
+      }
+    }
+    if (indexResult?.indexed !== true) {
+      // Position is rebuildable, so the canonical manifest remains durable.
+      // A reusable Convert build, however, must not claim completion until its
+      // bounded discovery projection is actually acknowledged.
       console.warn("capability semantic indexing failed", {
         entityId,
-        code: error?.code || "CAPABILITY_INDEX_FAILED",
-        message: String(error?.message || error).slice(0, 300),
+        code: indexFailure?.code || "CAPABILITY_INDEX_FAILED",
+        message: String(indexFailure?.message || indexFailure).slice(0, 300),
       });
+      if (requireIndex) {
+        const error = new CapabilityError(
+          "CAPABILITY_INDEX_UNAVAILABLE",
+          "The capability manifest was stored, but its reusable Position is temporarily unavailable."
+        );
+        error.retryable = true;
+        throw error;
+      }
     }
     return normalized;
   }
