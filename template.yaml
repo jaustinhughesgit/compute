@@ -36,9 +36,10 @@ Parameters:
 
 Globals:
   Function:
-    # Capability manifests allow provider calls up to 15 seconds. Leave enough
-    # Lambda time for policy checks, execution, audit writes, and cleanup.
-    Timeout: 30
+    # API relays may stop waiting earlier, but a leased capability finalizer
+    # must have time to finish Shorthand materialization and durable indexing.
+    # Provider requests retain their own much smaller runtime bounds.
+    Timeout: 180
     Tracing: Active
   Api:
     TracingEnabled: true

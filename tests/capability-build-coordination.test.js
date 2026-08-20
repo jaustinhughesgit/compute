@@ -4,6 +4,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const Module = require("node:module");
 const {
+  DEFAULT_FINALIZE_LEASE_SECONDS,
   MAX_BUILD_ARTIFACT_BYTES,
   boundedBuildArtifacts,
   createCapabilityBuildCoordinator,
@@ -141,6 +142,16 @@ test("completed background output has one leased finalizer", async () => {
   assert.match(dynamodb.updates[1].ConditionExpression, /#finalizeToken = :finalizeToken/);
   assert.deepEqual(dynamodb.updates[1].ExpressionAttributeValues[":artifacts"], artifacts);
   assert.match(dynamodb.updates[1].UpdateExpression, /#artifacts = :artifacts/);
+});
+
+test("the finalizer lease outlives the deployed Lambda materialization window", () => {
+  const template = require("node:fs").readFileSync(
+    require("node:path").join(__dirname, "../template.yaml"),
+    "utf8"
+  );
+  const timeout = Number(template.match(/Globals:[\s\S]*?Function:[\s\S]*?Timeout:\s*(\d+)/)?.[1]);
+  assert.equal(timeout, 180);
+  assert.ok(DEFAULT_FINALIZE_LEASE_SECONDS > timeout);
 });
 
 test("build artifact continuation evidence is typed and bounded below DynamoDB's item limit", () => {

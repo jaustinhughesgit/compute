@@ -181,6 +181,8 @@ Completed capability output uses a short single-finalizer lease before Shorthand
 
 The same finalizer lease is acquired before a deterministic background build enters Shorthand materialization. If an API relay times out after the build is claimed, resumed requests return `BUILD_PENDING` with `finalizing` evidence while the one lease holder continues; they do not execute the materialization body concurrently. After lease expiry, exactly one replacement poll may acquire it.
 
+The deployed Compute Lambda lifetime is longer than the finalization work's observed materialization window, and the finalizer lease is longer than that Lambda lifetime. API Gateway or an upstream relay may stop waiting earlier without cancelling the lease holder. Provider calls retain their smaller independent timeouts, so extending the worker lifecycle does not extend provider authority or request deadlines.
+
 Generated entity/app Shorthand reads registered-route results through `ROUTEGET`, which unwraps direct and relayed transport envelopes before selecting a named field. Ordinary `GET` remains exact object traversal; compilers must not encode one historical router wrapper depth into new entity-creation plans.
 
 When Convert creates a compute entity, it also writes the creator's canonical action grant for the newly returned entity address before reporting the manifest ready. Creation must not return an entity that its creator cannot immediately `use`; the grant is scoped to an entity proven to be in that request's `createdEntities` result. If that newly created compute address is public, Convert separately writes a canonical `pub` grant limited to `find`, `read`, `aggregate`, and `use`. Visibility alone never supplies execution authority.
