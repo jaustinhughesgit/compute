@@ -87,7 +87,7 @@ Validation should cover:
 
 Provider knowledge belongs in reusable versioned entities or protocol lineages. The core runtime supplies generic HTTP, transformation, credential-reference, validation, and diagnostic mechanics. A provider entity supplies endpoints, parameter definitions, response mappings, versions, and provider-specific normalization.
 
-Discovery accepts only values grounded in the utterance. For a typed date resolver, one explicit relative-day surface such as “today” is the grounded value even if the model returned its normalized ISO equivalent; Compute restores the spoken surface before browser replay. This narrow semantic equivalence does not permit normalization of locations, credentials, remembered context, or other fields.
+Discovery accepts only values grounded in the utterance. For a typed date resolver, one explicit relative-day surface such as “today” is the grounded value even if the model returned its normalized ISO equivalent; Compute restores the spoken surface before browser replay. When an operation has exactly one required `entity_reference` input and browser evidence contains exactly one locally resolved referent, Compute similarly uses that referent's literal spoken surface instead of trusting the model to recopy either the phrase or its opaque entity ID. The exact entity ID remains separate `using`/execution authority. These narrow equivalences do not permit normalization of locations, credentials, remembered context, or other fields.
 
 Validated compute entities may also use the allow-listed, side-effect-free binary arithmetic target supplied by the JPL runtime. This supports reusable local transforms without inventing a provider call or admitting arbitrary modules or JavaScript.
 

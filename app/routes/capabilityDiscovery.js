@@ -535,7 +535,36 @@ function normalizeDiscoveryInputValues({
   }
 
   const utteranceWords = normalizedWords(utterance);
-  const contextualValues = semanticEvidenceContext(semanticEvidence).resolvedContextBindings;
+  const semanticContext = semanticEvidenceContext(semanticEvidence);
+  const contextualValues = semanticContext.resolvedContextBindings;
+  const entityReferenceInputs = [...utteranceInputs.values()].filter((field) => (
+    field?.required !== false
+    && ["entity", "entity reference", "resolved entity"].includes(
+      normalizedWords(field?.bindingHint?.resolver)
+    )
+  ));
+  if (entityReferenceInputs.length === 1) {
+    const literalReferentSurfaces = [...new Set(
+      (semanticContext.invocationReferents || []).map((referent) => {
+        if (referent?.targetResolvedLocally === true && referent?.targetMention) {
+          return String(referent.targetMention).trim();
+        }
+        if (referent?.resolvedLocally === true && referent?.mention) {
+          return String(referent.mention).trim();
+        }
+        return "";
+      }).filter((surface) => {
+        const words = normalizedWords(surface);
+        return words && ` ${utteranceWords} `.includes(` ${words} `);
+      })
+    )];
+    // The browser already resolved this invocation surface to one exact graph
+    // entity. It is safer and more precise than asking the discovery model to
+    // recopy either the spoken text or an opaque entity ID.
+    if (literalReferentSurfaces.length === 1) {
+      supplied.set(entityReferenceInputs[0].name, literalReferentSurfaces[0]);
+    }
+  }
   const normalized = {};
   for (const [name, rawValue] of supplied) {
     const field = utteranceInputs.get(name);

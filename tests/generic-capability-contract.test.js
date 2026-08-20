@@ -917,6 +917,34 @@ test("discovery turns LLM semantic evidence into validated literal utterance bin
   }), /must occur literally/);
 });
 
+test("discovery uses the exact spoken surface for one browser-resolved entity referent", () => {
+  const operation = {
+    operationId: "wash",
+    inputs: [{
+      name: "vehicle",
+      type: "string",
+      required: true,
+      description: "Vehicle to wash.",
+      bindingHint: { source: "utterance", resolver: "entity_reference" },
+    }],
+  };
+  assert.deepEqual(normalizeDiscoveryInputValues({
+    parsedValues: [{ name: "vehicle", value: "ctx_opaque_car_id" }],
+    utterance: "Wash Austin's car.",
+    operation,
+    semanticEvidence: [{
+      invocationReferents: [{
+        mention: "Austin",
+        entityId: "usr_austin",
+        resolvedLocally: true,
+        targetMention: "Austin's car",
+        targetEntityId: "ctx_opaque_car_id",
+        targetResolvedLocally: true,
+      }],
+    }],
+  }), { vehicle: "Austin's car" });
+});
+
 test("discovery restores a normalized date to its explicit relative-day surface", () => {
   const operation = {
     operationId: "fetch_weather",
