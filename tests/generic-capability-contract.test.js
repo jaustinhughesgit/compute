@@ -964,6 +964,10 @@ test("discovery separates the reusable capability query while retaining the exac
       entityId: "usr-austin-exact",
       resolvedLocally: true,
       resolution: "contextdb-unique",
+      targetEntityId: "austin-car-exact",
+      targetMention: "Austin's car",
+      targetResolvedLocally: true,
+      targetResolution: "qualified-owner-edge",
     }],
   }]);
   assert.deepEqual(evidence, {
@@ -978,6 +982,10 @@ test("discovery separates the reusable capability query while retaining the exac
       entityId: "usr-austin-exact",
       resolvedLocally: true,
       resolution: "contextdb-unique",
+      targetEntityId: "austin-car-exact",
+      targetMention: "Austin's car",
+      targetResolvedLocally: true,
+      targetResolution: "qualified-owner-edge",
     }],
   });
   const convertSource = fs.readFileSync(path.join(__dirname, "../app/routes/modules/convert.js"), "utf8");

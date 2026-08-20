@@ -4,6 +4,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const { register, __test } = require("../app/routes/modules/contextGraph");
+const { validateCapabilityManifest } = require("../app/routes/capabilityManifest");
 const { createCanonicalPersistence } = require("../app/persistence/canonicalPersistence");
 const { memoryClient } = require("./helpers/canonical-memory-client");
 
@@ -42,7 +43,7 @@ function memoryDocumentClient() {
   };
 }
 
-function installRuntime(doc, profiles = [], canonicalPersistence = null) {
+function installRuntime(doc, profiles = [], canonicalPersistence = null, capabilityRegistry = null) {
   const handlers = new Map();
   for (const profile of profiles) {
     doc.items.set(`${profile.audienceId}\u001fprofile#self`, structuredClone(profile));
@@ -57,6 +58,9 @@ function installRuntime(doc, profiles = [], canonicalPersistence = null) {
       getDocClient: () => doc,
       ...(canonicalPersistence
         ? { getCanonicalPersistence: () => canonicalPersistence }
+        : {}),
+      ...(capabilityRegistry
+        ? { getCapabilityRegistry: () => capabilityRegistry }
         : {}),
       getSub: async (value, field) => ({ Items: field === "su" && workspaces[value] ? [workspaces[value]] : [] }),
       getWord: async (value) => ({ Items: [{ r: value === "word-amy" ? "Amy" : "Alice" }] }),
@@ -83,6 +87,36 @@ function publicationBody() {
       { localId: "rel_2", subjectLocalId: "ent_3", predicateLocalId: "ent_5", objectLocalId: "ent_4" },
     ],
   };
+}
+
+function carwashManifest(ownerId = "u:1") {
+  return validateCapabilityManifest({
+    schemaVersion: 1,
+    capabilityId: "vehicle.wash",
+    entityId: "compute-carwash",
+    version: 1,
+    status: "active",
+    ownerId,
+    execution: { type: "remote", readOnly: false, timeoutMs: 15000 },
+    operations: [{
+      operationId: "wash",
+      inputs: [{
+        name: "vehicle",
+        type: "string",
+        required: true,
+        bindingHint: { source: "utterance", resolver: "entity_reference" },
+      }],
+      outputs: [{ name: "state", type: "string", required: true }],
+      utteranceExamples: [{ text: "wash my car", inputs: { vehicle: "car" } }],
+      answerTemplate: "Your {{vehicle}} is {{state}}",
+      contextEffects: [{
+        type: "contextdb.replace_object",
+        subjectInput: "vehicle",
+        currentValue: "dirty",
+        newValue: "clean",
+      }],
+    }],
+  });
 }
 
 test("component audiences carry every connected fact to a referenced user", () => {
@@ -603,6 +637,131 @@ test("a public relation rewire publishes its new value node with the established
   assert.equal(afterScopeChange.response.relations.some((relation) => (
     relation.serverId === relationIds["car-condition"] && relation.tombstone !== true
   )), false);
+});
+
+test("using an owner-published app applies only its declared transition to the owner's exact public relation", async () => {
+  const doc = memoryDocumentClient();
+  const manifest = carwashManifest("u:1");
+  const registry = {
+    listAvailableByEntityIds: async (ids, options) => (
+      ids.includes(manifest.entityId) && options.ownerId === "u:2" ? [manifest] : []
+    ),
+  };
+  const handlers = installRuntime(doc, [], null, registry);
+  const owner = { cookie: { e: "1" } };
+  const caller = { cookie: { e: "2" } };
+  const published = await handlers.get("contextGraphPublish")({
+    path: "/workspace-alice",
+    req: { body: {
+      schemaVersion: 1,
+      idempotencyKey: "delegated-car-dirty",
+      source: { sentence: "My car is dirty and my name is Austin." },
+      nodes: [
+        { localId: "speaker", lemmas: ["speaker"] },
+        { localId: "have", lemmas: ["have"] },
+        { localId: "car", lemmas: ["car"], names: ["Toyota Camry"] },
+        { localId: "condition", lemmas: ["condition"] },
+        { localId: "dirty", lemmas: ["dirty"] },
+        { localId: "name", lemmas: ["name"] },
+        { localId: "austin", lemmas: ["austin"], names: ["Austin"] },
+      ],
+      relations: [
+        { localId: "speaker-car", subjectLocalId: "speaker", predicateLocalId: "have", objectLocalId: "car" },
+        { localId: "car-condition", subjectLocalId: "car", predicateLocalId: "condition", objectLocalId: "dirty" },
+        { localId: "speaker-name", subjectLocalId: "speaker", predicateLocalId: "name", objectLocalId: "austin" },
+      ],
+    } },
+  }, owner);
+  assert.equal(published.ok, true);
+  const nodes = Object.fromEntries(published.response.nodes.map((node) => [node.localId, node.serverId]));
+  const relation = published.response.relations.find((item) => item.localId === "car-condition");
+  const dependency = manifest.operations[0].entityDependencies[0];
+  const request = {
+    schemaVersion: 1,
+    idempotencyKey: "wash-austins-car",
+    capabilityId: manifest.capabilityId,
+    entityId: manifest.entityId,
+    version: manifest.version,
+    operationId: "wash",
+    source: { sentence: "Wash Austin's car." },
+    effects: [{
+      status: "requested",
+      authority: "owner-published-capability",
+      sourceDependencyId: dependency.dependencyId,
+      relationId: relation.serverId,
+      subjectEntityId: nodes.car,
+      targetEntityId: nodes.condition,
+      targetPublisherId: "1",
+      targetRelationVersion: relation.version,
+    }],
+  };
+  const applied = await handlers.get("contextGraphApplyCapabilityEffects")({
+    path: "/workspace-amy",
+    req: { body: request },
+  }, caller);
+  assert.equal(applied.ok, true);
+  assert.equal(applied.response.actorId, "2");
+  assert.equal(applied.response.ownerId, "1");
+  assert.equal(applied.response.effects[0].value, "clean");
+  assert.equal(applied.response.effects[0].relationVersion, 2);
+
+  const ownerRelation = doc.items.get(`u:1\u001frelation#${relation.serverId}`);
+  const publicRelation = doc.items.get(`public:1\u001frelation#${relation.serverId}`);
+  assert.equal(ownerRelation.object, applied.response.effects[0].valueEntityId);
+  assert.equal(publicRelation.object, applied.response.effects[0].valueEntityId);
+  assert.equal(ownerRelation.source.actorId, "2");
+  assert.equal(ownerRelation.source.capabilityEntityId, manifest.entityId);
+  assert.deepEqual(
+    await handlers.get("contextGraphApplyCapabilityEffects")({
+      path: "/workspace-amy",
+      req: { body: request },
+    }, caller),
+    applied
+  );
+});
+
+test("a reusable app cannot delegate a write to data published by a different owner", async () => {
+  const doc = memoryDocumentClient();
+  const manifest = carwashManifest("u:2");
+  const handlers = installRuntime(doc, [], null, {
+    listAvailableByEntityIds: async () => [manifest],
+  });
+  const published = await handlers.get("contextGraphPublish")({
+    path: "/workspace-alice",
+    req: { body: {
+      schemaVersion: 1,
+      idempotencyKey: "owner-bound-dirty",
+      nodes: [
+        { localId: "car", lemmas: ["car"] },
+        { localId: "condition", lemmas: ["condition"] },
+        { localId: "dirty", lemmas: ["dirty"] },
+      ],
+      relations: [{ localId: "condition-relation", subjectLocalId: "car", predicateLocalId: "condition", objectLocalId: "dirty" }],
+    } },
+  }, { cookie: { e: "1" } });
+  const nodes = Object.fromEntries(published.response.nodes.map((node) => [node.localId, node.serverId]));
+  const relation = published.response.relations[0];
+  const result = await handlers.get("contextGraphApplyCapabilityEffects")({
+    path: "/workspace-amy",
+    req: { body: {
+      schemaVersion: 1,
+      idempotencyKey: "foreign-owner-rejected",
+      capabilityId: manifest.capabilityId,
+      entityId: manifest.entityId,
+      version: manifest.version,
+      operationId: "wash",
+      effects: [{
+        sourceDependencyId: manifest.operations[0].entityDependencies[0].dependencyId,
+        relationId: relation.serverId,
+        subjectEntityId: nodes.car,
+        targetEntityId: nodes.condition,
+        targetPublisherId: "1",
+        targetRelationVersion: 1,
+      }],
+    } },
+  }, { cookie: { e: "2" } });
+  assert.equal(result.ok, false);
+  assert.equal(result.error.code, "CONTEXT_CAPABILITY_TARGET_MISMATCH");
 });
 
 test("owned protected placeholders hydrate by name without publishing plaintext", async () => {

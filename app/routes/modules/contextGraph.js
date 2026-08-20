@@ -7,6 +7,7 @@
 const crypto = require("node:crypto");
 const { createCanonicalPersistence } = require("../../persistence/canonicalPersistence");
 const { createCanonicalContextStore } = require("../../persistence/canonicalContextStore");
+const { createCapabilityRegistry } = require("../capabilityRegistry");
 const { normalizeProtectedAssetReference } = require("../protectedAssetContract");
 
 const SCHEMA_VERSION = 1;
@@ -302,12 +303,33 @@ function errorEnvelope(code, message, statusCode = 400) {
   return { ok: false, statusCode, error: { code, message } };
 }
 
+function principalValue(value) {
+  return text(value, 80).replace(/^u:/, "");
+}
+
+function recordHasLabel(record, value) {
+  const wanted = normalizedLabel(value);
+  return !!wanted && uniqueStrings([
+    ...(record?.names || []),
+    ...(record?.lemmas || []),
+  ]).some((label) => normalizedLabel(label) === wanted);
+}
+
 function register({ on, use }) {
-  const { getDocClient, getCanonicalPersistence, getSub, getWord } = use();
+  const {
+    getDocClient,
+    getCanonicalPersistence,
+    getCapabilityRegistry,
+    getSub,
+    getWord,
+  } = use();
   const persistence = typeof getCanonicalPersistence === "function"
     ? getCanonicalPersistence()
     : createCanonicalPersistence({ documentClient: getDocClient() });
   const canonicalStore = createCanonicalContextStore({ persistence });
+  const capabilityRegistry = typeof getCapabilityRegistry === "function"
+    ? getCapabilityRegistry()
+    : createCapabilityRegistry({ dynamodb: getDocClient(), persistence });
 
   async function requirePrincipal(meta) {
     const principalId = text(meta?.cookie?.e, 80);
@@ -929,6 +951,278 @@ function register({ on, use }) {
       return { ok: true, response: priorAcknowledgement };
     }
     await writeBatches(writes);
+    return { ok: true, response: acknowledgement };
+  });
+
+  on("contextGraphApplyCapabilityEffects", async (ctx, meta) => {
+    const principalId = await requirePrincipal(meta);
+    if (!principalId) return errorEnvelope("CONTEXT_AUTH_REQUIRED", "A signed-in context identity is required.", 401);
+    const body = unwrapBody(ctx?.req?.body);
+    if (Number(body.schemaVersion || 0) !== SCHEMA_VERSION) {
+      return errorEnvelope("CONTEXT_SCHEMA_UNSUPPORTED", "Context capability effects require schemaVersion 1.");
+    }
+    const workspaceSu = text((ctx?.path || "").split("/").filter(Boolean)[0] || body.workspaceSu, 180);
+    const workspace = await verifyWorkspace(workspaceSu, principalId);
+    if (!workspace.ok) return errorEnvelope(workspace.code, "The active workspace does not belong to this context identity.", 403);
+
+    const idempotencyKey = text(body.idempotencyKey, 180);
+    const entityId = text(body.entityId, 180);
+    const capabilityId = text(body.capabilityId, 160);
+    const operationId = text(body.operationId, 120);
+    const version = Math.max(0, Number(body.version || 0));
+    const effects = (Array.isArray(body.effects) ? body.effects : []).slice(0, 8);
+    if (!idempotencyKey) return errorEnvelope("CONTEXT_IDEMPOTENCY_REQUIRED", "An idempotency key is required.");
+    if (!entityId || !capabilityId || !operationId || !version || !effects.length) {
+      return errorEnvelope("CONTEXT_CAPABILITY_EFFECT_REQUIRED", "An exact capability, operation, version, and effect are required.");
+    }
+
+    const idempotencyAudience = `service:${principalId}`;
+    const prior = await persistence.context.get(idempotencyAudience, `idem#${idempotencyKey}`);
+    if (prior?.Item?.acknowledgement) return { ok: true, response: prior.Item.acknowledgement };
+
+    const available = await capabilityRegistry.listAvailableByEntityIds([entityId], {
+      ownerId: `u:${principalId}`,
+      activeOnly: true,
+      limit: 1,
+    });
+    const manifest = available.find((candidate) => (
+      text(candidate?.entityId, 180) === entityId
+      && text(candidate?.capabilityId, 160) === capabilityId
+      && Number(candidate?.version) === version
+    ));
+    if (!manifest) {
+      return errorEnvelope("CONTEXT_CAPABILITY_USE_FORBIDDEN", "The caller cannot use this exact capability version.", 403);
+    }
+    const operation = (Array.isArray(manifest.operations) ? manifest.operations : [])
+      .find((candidate) => text(candidate?.operationId, 120) === operationId);
+    if (!operation || manifest.execution?.readOnly === true || !operation.contextEffects?.length) {
+      return errorEnvelope("CONTEXT_CAPABILITY_EFFECT_UNDECLARED", "The selected operation does not declare a writable Context effect.", 403);
+    }
+    const ownerId = principalValue(manifest.ownerId);
+    if (!ownerId || ownerId === "system") {
+      return errorEnvelope("CONTEXT_CAPABILITY_OWNER_REQUIRED", "A delegated Context effect requires a user-owned capability.", 403);
+    }
+
+    const dependencies = new Map((Array.isArray(operation.entityDependencies)
+      ? operation.entityDependencies : []).map((dependency) => [text(dependency?.dependencyId, 200), dependency]));
+    const prepared = [];
+    const relationIds = new Set();
+    for (let index = 0; index < effects.length; index += 1) {
+      const raw = effects[index];
+      const sourceDependencyId = text(raw?.sourceDependencyId, 200);
+      const relationId = text(raw?.relationId || raw?.targetRelationId, 180);
+      const subjectId = text(raw?.subjectEntityId || raw?.targetSubjectEntityId, 180);
+      const predicateId = text(raw?.targetEntityId || raw?.propertyEntityId, 180);
+      const expectedVersion = Math.max(0, Number(raw?.targetRelationVersion || 0));
+      const dependency = dependencies.get(sourceDependencyId);
+      const declared = dependency
+        ? operation.contextEffects?.[Number(dependency.effectIndex)]
+        : null;
+      if (
+        !dependency || dependency.access !== "read_write"
+        || declared?.type !== "contextdb.replace_object"
+        || !relationId || !subjectId || !predicateId || !expectedVersion
+      ) {
+        return errorEnvelope("CONTEXT_CAPABILITY_EFFECT_MISMATCH", "The requested effect does not match one declared app dependency.", 403);
+      }
+      if (relationIds.has(relationId)) {
+        return errorEnvelope("CONTEXT_CAPABILITY_EFFECT_AMBIGUOUS", "One request cannot mutate the same Context relation twice.");
+      }
+      relationIds.add(relationId);
+
+      const ownerAudience = `u:${ownerId}`;
+      const relation = (await persistence.context.get(ownerAudience, `relation#${relationId}`))?.Item;
+      if (
+        relation?.recordType !== "relation"
+        || text(relation.serverId, 180) !== relationId
+        || text(relation.subject, 180) !== subjectId
+        || text(relation.predicate, 180) !== predicateId
+        || principalValue(relation.publisherId) !== ownerId
+        || principalValue(raw?.targetPublisherId) !== ownerId
+      ) {
+        return errorEnvelope("CONTEXT_CAPABILITY_TARGET_MISMATCH", "The exact owner-published relation no longer matches the app binding.", 409);
+      }
+      if (principalValue(manifest.ownerId) !== principalValue(relation.publisherId)) {
+        return errorEnvelope("CONTEXT_CAPABILITY_OWNER_MISMATCH", "An app can delegate effects only on its owner's Context relation.", 403);
+      }
+      const audienceIds = Array.isArray(relation.audienceIds) ? relation.audienceIds : [];
+      if (!audienceIds.includes(`public:${ownerId}`) && !audienceIds.includes(`u:${principalId}`)) {
+        return errorEnvelope("CONTEXT_CAPABILITY_TARGET_FORBIDDEN", "The target relation is not visible to this caller.", 403);
+      }
+      const [subjectNode, predicateNode, currentNode] = await Promise.all([
+        persistence.context.get(ownerAudience, `node#${relation.subject}`),
+        persistence.context.get(ownerAudience, `node#${relation.predicate}`),
+        persistence.context.get(ownerAudience, `node#${relation.object}`),
+      ]);
+      if ([subjectNode, predicateNode, currentNode].some((result) => (
+        result?.Item?.recordType !== "node" || result.Item.protectedAssetReference
+      ))) {
+        return errorEnvelope("CONTEXT_CAPABILITY_PROTECTED_TARGET", "Delegated effects cannot target protected or incomplete Context data.", 403);
+      }
+      const alreadyApplied = Number(relation.version) === expectedVersion + 1
+        && recordHasLabel(currentNode.Item, declared.newValue)
+        && text(relation?.source?.delegatedIdempotencyKey, 180) === idempotencyKey;
+      if (!alreadyApplied && Number(relation.version) !== expectedVersion) {
+        return errorEnvelope("CONTEXT_CAPABILITY_VERSION_CONFLICT", "The target relation changed after the app Path was bound.", 409);
+      }
+      if (!alreadyApplied && !recordHasLabel(currentNode.Item, declared.currentValue)) {
+        return errorEnvelope("CONTEXT_CAPABILITY_CURRENT_VALUE_MISMATCH", "The target relation no longer contains the app's declared current value.", 409);
+      }
+      const valueEntityId = stableId(
+        "ctx", ownerId, entityId, version, operationId, sourceDependencyId, normalizedLabel(declared.newValue)
+      );
+      prepared.push({
+        index,
+        raw,
+        dependency,
+        declared,
+        relation,
+        relationId,
+        subjectId,
+        predicateId,
+        expectedVersion,
+        ownerAudience,
+        audienceIds,
+        valueEntityId,
+        alreadyApplied,
+      });
+    }
+
+    const now = new Date().toISOString();
+    const acknowledgements = [];
+    for (const item of prepared) {
+      const nextVersion = item.expectedVersion + 1;
+      const nodePayload = {
+        serverId: item.valueEntityId,
+        lemmas: [text(item.declared.newValue)],
+        names: [],
+        resolution: "capability-effect-value",
+        visibility: item.audienceIds.includes(`public:${ownerId}`) ? "public-workspace" : "participants",
+      };
+      const canonicalNode = {
+        localId: item.valueEntityId,
+        recordType: "node",
+        publisherId: ownerId,
+        audienceIds: item.audienceIds,
+        ...nodePayload,
+        payloadHash: payloadHash(nodePayload),
+        version: 1,
+        updatedAt: now,
+      };
+      const relationPayload = {
+        serverId: item.relationId,
+        subject: item.subjectId,
+        predicate: item.predicateId,
+        object: item.valueEntityId,
+        source: {
+          requestId: text(body?.source?.requestId, 180) || null,
+          sentence: text(body?.source?.sentence, MAX_SOURCE_SENTENCE) || null,
+          contextId: text(body?.source?.contextId, 120) || null,
+          pathSignature: text(body?.source?.pathSignature, 300) || null,
+          delegatedIdempotencyKey: idempotencyKey,
+          actorId: principalId,
+          capabilityEntityId: entityId,
+          capabilityVersion: version,
+          operationId,
+          sourceDependencyId: text(item.dependency.dependencyId, 200),
+        },
+        visibility: item.audienceIds.includes(`public:${ownerId}`) ? "public-workspace" : "participants",
+        tombstone: false,
+      };
+      const canonicalRelation = {
+        localId: item.relationId,
+        recordType: "relation",
+        publisherId: ownerId,
+        audienceIds: item.audienceIds,
+        revokedAudienceIds: [],
+        ...relationPayload,
+        payloadHash: payloadHash(relationPayload),
+        version: nextVersion,
+        updatedAt: now,
+      };
+      const nodeWrites = item.audienceIds.map((audienceId) => ({
+        audienceId,
+        recordKey: `node#${item.valueEntityId}`,
+        ...canonicalNode,
+      }));
+      if (!item.alreadyApplied) {
+        await writeBatches(nodeWrites);
+        const ownerRelation = {
+          audienceId: item.ownerAudience,
+          recordKey: `relation#${item.relationId}`,
+          ...canonicalRelation,
+        };
+        try {
+          await persistence.context.put(ownerRelation, {
+            ConditionExpression: "#version = :expected AND #object = :current",
+            ExpressionAttributeNames: { "#version": "version", "#object": "object" },
+            ExpressionAttributeValues: {
+              ":expected": item.expectedVersion,
+              ":current": item.relation.object,
+            },
+          });
+        } catch {
+          return errorEnvelope("CONTEXT_CAPABILITY_VERSION_CONFLICT", "The target relation changed while the app effect was committing.", 409);
+        }
+      }
+      if (canonicalStore.enabled) {
+        try {
+          await canonicalStore.publish({
+            principalId: ownerId,
+            workspaceSu: `service:${entityId}`,
+            idempotencyKey: `delegated-${idempotencyKey}-${item.index}`,
+            nodes: [canonicalNode],
+            relations: [canonicalRelation],
+            profile: null,
+          });
+        } catch {
+          return errorEnvelope(
+            "CONTEXT_CANONICAL_PERSIST_FAILED",
+            "The delegated effect was accepted and canonical persistence can be retried safely.",
+            503
+          );
+        }
+      }
+      const remainingWrites = [
+        ...nodeWrites,
+        ...item.audienceIds.filter((audienceId) => audienceId !== item.ownerAudience).map((audienceId) => ({
+          audienceId,
+          recordKey: `relation#${item.relationId}`,
+          ...canonicalRelation,
+        })),
+      ];
+      await writeBatches(remainingWrites);
+      acknowledgements.push({
+        sourceDependencyId: text(item.dependency.dependencyId, 200),
+        relationId: item.relationId,
+        relationVersion: nextVersion,
+        valueEntityId: item.valueEntityId,
+        value: text(item.declared.newValue),
+        status: item.alreadyApplied ? "already-applied" : "applied",
+      });
+    }
+
+    const acknowledgement = {
+      schemaVersion: SCHEMA_VERSION,
+      kind: "context-capability-effect-ack",
+      idempotencyKey,
+      capabilityId,
+      entityId,
+      version,
+      operationId,
+      actorId: principalId,
+      ownerId,
+      effects: acknowledgements,
+      acknowledgedAt: now,
+    };
+    await persistence.context.put({
+      audienceId: idempotencyAudience,
+      recordKey: `idem#${idempotencyKey}`,
+      recordType: "idempotency",
+      acknowledgement,
+      updatedAt: now,
+      expiresAt: Math.floor(Date.now() / 1000) + (30 * 24 * 60 * 60),
+    });
     return { ok: true, response: acknowledgement };
   });
 

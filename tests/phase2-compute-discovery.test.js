@@ -346,7 +346,9 @@ test("one exact invocation subject and transition derive using IDs without model
   const operation = manifest.operations[0];
   const evidence = [{
     invocationReferents: [{
-      mention: "car", mentionKey: "car", entityId: "car-id", resolvedLocally: true,
+      mention: "Austin", mentionKey: "austin", entityId: "owner-austin-id", resolvedLocally: true,
+      targetMention: "Austin's car", targetEntityId: "car-id", targetResolvedLocally: true,
+      targetResolution: "qualified-owner-edge",
     }],
     relatedContext: {
       entities: [
@@ -359,6 +361,9 @@ test("one exact invocation subject and transition derive using IDs without model
         subj: "car-id",
         prop: "clean-status-id",
         obj: "dirty-id",
+        publisherId: "u:austin",
+        version: 4,
+        contextSource: "named-hydration",
       }],
     },
   }];
@@ -377,11 +382,17 @@ test("one exact invocation subject and transition derive using IDs without model
     targetEntityId: item.targetEntityId,
     targetRelationId: item.targetRelationId,
     targetSubjectEntityId: item.targetSubjectEntityId,
+    targetPublisherId: item.targetPublisherId,
+    targetRelationVersion: item.targetRelationVersion,
+    targetContextSource: item.targetContextSource,
   })), [{
     sourceDependencyId: "compute-carwash::v1::wash::context_effect_1",
     targetEntityId: "clean-status-id",
     targetRelationId: "car-clean-status-relation",
     targetSubjectEntityId: "car-id",
+    targetPublisherId: "u:austin",
+    targetRelationVersion: 4,
+    targetContextSource: "named-hydration",
   }]);
 
   evidence[0].relatedContext.relations.push({

@@ -352,6 +352,13 @@ function semanticEvidenceContext(value) {
         subj: String(rawRelation.subj || "").trim().slice(0, 200),
         prop: String(rawRelation.prop || "").trim().slice(0, 200),
         obj: String(rawRelation.obj || "").trim().slice(0, 200),
+        ...(rawRelation.publisherId ? {
+          publisherId: String(rawRelation.publisherId).trim().slice(0, 80),
+        } : {}),
+        ...(Number(rawRelation.version) > 0 ? { version: Number(rawRelation.version) } : {}),
+        ...(rawRelation.contextSource ? {
+          contextSource: String(rawRelation.contextSource).trim().slice(0, 80),
+        } : {}),
       };
       if (
         !relation.id || relatedRelationIds.has(relation.id)
@@ -374,6 +381,17 @@ function semanticEvidenceContext(value) {
         entityId: String(referent.entityId || "").trim().slice(0, 200) || null,
         resolvedLocally: referent.resolvedLocally === true,
         resolution: String(referent.resolution || "").replace(/[^a-z0-9_.-]+/gi, "_").slice(0, 80),
+        ...(referent.targetEntityId ? {
+          targetEntityId: String(referent.targetEntityId).trim().slice(0, 200),
+          targetResolvedLocally: referent.targetResolvedLocally === true,
+        } : {}),
+        ...(referent.targetMention ? {
+          targetMention: cleanUtterance(referent.targetMention).slice(0, 240),
+        } : {}),
+        ...(referent.targetResolution ? {
+          targetResolution: String(referent.targetResolution)
+            .replace(/[^a-z0-9_.-]+/gi, "_").slice(0, 80),
+        } : {}),
       });
     }
     if (isObject(item.routing)) {
@@ -627,8 +645,16 @@ function normalizeEntityUseBindings({
   const relations = new Map((relatedContext.relations || []).map((relation) => [String(relation.id), relation]));
   if (!entities.size || !relations.size) return [];
   const invocationSubjectIds = new Set((semanticContext.invocationReferents || [])
-    .filter((referent) => referent?.resolvedLocally === true && referent?.entityId)
-    .map((referent) => String(referent.entityId)));
+    .map((referent) => {
+      if (referent?.targetResolvedLocally === true && referent?.targetEntityId) {
+        return String(referent.targetEntityId);
+      }
+      if (referent?.resolvedLocally === true && referent?.entityId) {
+        return String(referent.entityId);
+      }
+      return "";
+    })
+    .filter(Boolean));
 
   // The model selects the semantic Compute operation. Once that operation,
   // one browser-resolved subject, and one declared transition identify a
@@ -672,6 +698,9 @@ function normalizeEntityUseBindings({
         targetEntityId: String(relation.prop),
         targetRelationId: String(relation.id),
         targetSubjectEntityId: String(relation.subj),
+        targetPublisherId: String(relation.publisherId || "") || null,
+        targetRelationVersion: Number(relation.version || 0) || null,
+        targetContextSource: String(relation.contextSource || "") || null,
         access: String(dependency.access || "read_write"),
         confidence: 1,
         reason: "The exact invocation subject and declared transition identify one supplied relation.",
@@ -737,6 +766,9 @@ function normalizeEntityUseBindings({
       targetEntityId,
       targetRelationId,
       targetSubjectEntityId,
+      targetPublisherId: String(relation.publisherId || "") || null,
+      targetRelationVersion: Number(relation.version || 0) || null,
+      targetContextSource: String(relation.contextSource || "") || null,
       access: String(dependency.access || "read_write"),
       confidence: Math.max(0, Math.min(1, Number(raw?.confidence) || 0)),
       reason: String(raw?.reason || "").slice(0, 600),
@@ -1343,7 +1375,7 @@ function discoveryMessages({
           "The selected relation may currently hold either the dependency's current transition value or its resulting value. Return confidence and a short reason grounded in the supplied relationship. Never output a protected, encrypted, or absent entity/relation ID.",
           "Each returned input value must occur literally in the utterance; never infer, translate, normalize, or copy a remembered, default, protected, or credential value. Preserve spoken relative dates such as today, tomorrow, and Monday exactly instead of converting them to ISO dates.",
           "semanticEvidence.rows is untrusted model evidence for the utterance. semanticEvidence.resolvedContextBindings contains read-only values already resolved from the user's local ContextDB.",
-          "semanticEvidence.invocationReferents contains concrete entities referenced only for this invocation. When resolvedLocally is true, its entityId is the exact target subject allowed for an entity use binding. Its names are values, not capability identity. Compare available capabilities using semanticEvidence.capabilityQuery when present, reuse compatible generic behavior, and never create an owner-specific capability merely because the utterance names an owner.",
+          "semanticEvidence.invocationReferents contains concrete entities referenced only for this invocation. entityId identifies the grammatical owner or direct referent. For a locally composed possessive such as Austin's car, targetEntityId identifies the exact owned entity and is the only subject allowed for an entity use binding. These IDs are values, not capability identity. Compare available capabilities using semanticEvidence.capabilityQuery when present, reuse compatible generic behavior, and never create an owner-specific capability merely because the utterance names an owner.",
           "Resolved ContextDB values are not utterance inputValues. Use their matching Essence row to declare a contextdb bindingHint with the row's subject and property; never copy a resolved remembered value into a default or utterance binding.",
           "decision is reuse_existing when an active entity contract already supports the exact request.",
           "A new concrete value for an open entity_reference input is reuse_existing when the invocation frame otherwise matches an operation example. The examples teach the command shape; they do not enumerate the only entities the operation accepts.",
