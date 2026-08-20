@@ -7,7 +7,11 @@ const {
   validateCapabilityBuildRequest,
   validateCapabilityManifest,
 } = require("../app/routes/capabilityManifest");
-const { buildComputeEntitySpec } = require("../app/routes/capabilityBlueprints");
+const {
+  buildComputeEntitySpec,
+  declaredContextEffectImplementation,
+  hasDeclaredDeterministicImplementation,
+} = require("../app/routes/capabilityBlueprints");
 const { applyGeneratedAnswerPlan } = require("../app/routes/capabilityInputSemantics");
 const { normalizeGeneratedConvertOwnerBindings } = require("../app/routes/capabilityInputSemantics");
 const {
@@ -719,4 +723,44 @@ test("a capability with ContextDB effects is built as non-read-only JPL", async 
     vehicle: "{|req=>body.vehicle|}",
     state: "clean",
   });
+});
+
+test("a fixed ContextDB transition compiles without a second model build", async () => {
+  let modelCalls = 0;
+  const request = applyGeneratedAnswerPlan(carwashBuildRequest(), {
+    source: "literal",
+    operationId: "wash",
+    subject: null,
+    property: null,
+    inputName: null,
+    outputName: "state",
+    statement: "The resulting state is clean.",
+  });
+  const spec = await buildComputeEntitySpec({
+    capabilityRequest: request,
+    requestedBy: "u:test",
+    originalUtterance: "Build a reusable vehicle cleaner.",
+    openai: {
+      chat: { completions: { create: async () => { modelCalls += 1; throw new Error("must not run"); } } },
+    },
+  });
+
+  assert.equal(hasDeclaredDeterministicImplementation(request), true);
+  assert.equal(modelCalls, 0);
+  assert.equal(spec.computeEntity.provider, "local-declarative-context-transition");
+  assert.deepEqual(spec.computeEntity.published.actions[0].chain[0].params[0], {
+    vehicle: "{|req=>body.vehicle|}",
+    state: "clean",
+  });
+});
+
+test("a ContextDB transition does not guess across multiple result outputs", () => {
+  const request = carwashBuildRequest();
+  request.operations[0].outputs.push({
+    name: "receipt",
+    type: "string",
+    required: true,
+    description: "A separate receipt value.",
+  });
+  assert.equal(declaredContextEffectImplementation(request), null);
 });

@@ -244,8 +244,71 @@ function declaredInputProjectionImplementation(buildRequest) {
   };
 }
 
+function declaredContextEffectImplementation(buildRequest) {
+  if (!Array.isArray(buildRequest?.operations) || buildRequest.operations.length !== 1) return null;
+  const answerSource = String(buildRequest?.answerPlan?.source || "").trim().toLowerCase();
+  if (answerSource && answerSource !== "literal") return null;
+  const operation = buildRequest.operations[0];
+  if (operation?.calculation) return null;
+  if ((operation?.protectedAssetRequirements || []).length) return null;
+  const effects = Array.isArray(operation?.contextEffects) ? operation.contextEffects : [];
+  if (effects.length !== 1 || effects[0]?.type !== "contextdb.replace_object") return null;
+  const effect = effects[0];
+  const inputs = Array.isArray(operation?.inputs) ? operation.inputs : [];
+  const outputs = Array.isArray(operation?.outputs) ? operation.outputs : [];
+  const subjectInput = inputs.find((input) => input.name === effect.subjectInput);
+  if (!subjectInput || !outputs.length) return null;
+
+  const usedInputs = new Set([subjectInput.name]);
+  const outputValues = new Map();
+  const unresolved = [];
+  for (const output of outputs) {
+    const exact = inputs.find((input) => (
+      input.name === output.name && compatibleProjectionType(input, output)
+    ));
+    if (exact) {
+      usedInputs.add(exact.name);
+      outputValues.set(output.name, `{|req=>body.${exact.name}|}`);
+    } else {
+      unresolved.push(output);
+    }
+  }
+  if (unresolved.length > 1) return null;
+  if (unresolved.length === 1) {
+    const output = unresolved[0];
+    const outputType = String(output?.type || "any").toLowerCase();
+    if (!["string", "any"].includes(outputType) || typeof effect.newValue !== "string") return null;
+    const plannedOutput = String(buildRequest?.answerPlan?.outputName || "").trim();
+    if (plannedOutput && plannedOutput !== output.name) return null;
+    outputValues.set(output.name, effect.newValue);
+  }
+  if (inputs.some((input) => input.required && !usedInputs.has(input.name))) return null;
+
+  return {
+    name: buildRequest.name || buildRequest.capabilityIdHint,
+    provider: "local-declarative-context-transition",
+    inputRequirements: [],
+    protectedAssetRequirements: [],
+    published: {
+      modules: {},
+      actions: [{
+        target: "{|res|}!",
+        chain: [{
+          access: "send",
+          params: [Object.fromEntries(outputs.map((output) => [
+            output.name,
+            outputValues.get(output.name),
+          ]))],
+        }],
+      }],
+      data: {},
+    },
+  };
+}
+
 function declaredDeterministicImplementation(buildRequest) {
   return declaredCalculationImplementation(buildRequest)
+    || declaredContextEffectImplementation(buildRequest)
     || declaredInputProjectionImplementation(buildRequest);
 }
 
@@ -1191,6 +1254,7 @@ module.exports = {
   hasDeclaredDeterministicImplementation,
   declaredCalculationImplementation,
   declaredInputProjectionImplementation,
+  declaredContextEffectImplementation,
   listCapabilityBlueprints,
   buildComputeEntitySpec,
   backgroundImplementationInput,
