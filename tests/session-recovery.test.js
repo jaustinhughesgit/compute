@@ -19,6 +19,7 @@ test("an unresolved access token is not treated as authenticated", () => {
 });
 
 test("a recovered cookie replaces the stale token for nested composition", () => {
+  const dispatchMeta = { cookie: { ak: "old-token", gi: "4", e: "5" } };
   const ctx = {
     xAccessToken: "old-token",
     req: {
@@ -28,7 +29,11 @@ test("a recovered cookie replaces the stale token for nested composition", () =>
     },
   };
   assert.equal(
-    propagateAuthenticatedCookie(ctx, { ak: "new-token", gi: "7", e: "9", ci: "11" }),
+    propagateAuthenticatedCookie(
+      ctx,
+      { ak: "new-token", gi: "7", e: "9", ci: "11" },
+      dispatchMeta
+    ),
     true
   );
   assert.equal(ctx.xAccessToken, "new-token");
@@ -36,6 +41,8 @@ test("a recovered cookie replaces the stale token for nested composition", () =>
   assert.equal(ctx.req.body.headers["X-accessToken"], "new-token");
   assert.equal(ctx.req.cookies.gi, "7");
   assert.equal(ctx.req.cookies.e, "9");
+  assert.equal(dispatchMeta.cookie.ak, "new-token");
+  assert.equal(dispatchMeta.cookie.e, "9");
 });
 
 test("only the explicit new-user bootstrap may request a fresh browser identity", () => {

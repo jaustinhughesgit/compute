@@ -55,7 +55,7 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, 
   _deps = { dynamodb, dynamodbLL, uuidv4, s3, ses, AWS, openai, Anthropic };
   _shared = createShared(_deps);
 
-  _shared.use(async (ctx) => {
+  _shared.use(async (ctx, dispatchMeta) => {
     const main = {};
     const freshBrowserIdentity = prepareFreshBrowserIdentity(ctx);
     const xA = freshBrowserIdentity
@@ -68,7 +68,7 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, 
       ctx.res
     );
 
-    propagateAuthenticatedCookie(ctx, ck);
+    propagateAuthenticatedCookie(ctx, ck, dispatchMeta);
   });
 
   _signer =

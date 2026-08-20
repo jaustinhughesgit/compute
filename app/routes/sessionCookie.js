@@ -47,9 +47,16 @@ function prepareFreshBrowserIdentity(ctx) {
   return true;
 }
 
-function propagateAuthenticatedCookie(ctx, cookie) {
+function propagateAuthenticatedCookie(ctx, cookie, dispatchMeta = null) {
   if (!ctx?.req || !cookie || typeof cookie !== "object") return false;
   ctx.cookie = cookie;
+  if (dispatchMeta && typeof dispatchMeta === "object") {
+    // Action handlers authorize from dispatch metadata while middleware owns
+    // cookie creation/recovery. Keep both views on the same principal so a
+    // fresh new-user request cannot return a workspace created for the stale
+    // cookie that arrived with the request.
+    dispatchMeta.cookie = cookie;
+  }
   ctx.req.cookies ||= {};
   Object.assign(ctx.req.cookies, cookie);
   if (cookie.ak) {
