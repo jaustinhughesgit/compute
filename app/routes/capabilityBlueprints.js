@@ -306,6 +306,41 @@ function declaredContextEffectImplementation(buildRequest) {
   };
 }
 
+function declaredContextEffectResult(operation, inputs = {}) {
+  const effects = Array.isArray(operation?.contextEffects) ? operation.contextEffects : [];
+  if (effects.length !== 1 || effects[0]?.type !== "contextdb.replace_object") return null;
+  if (operation?.calculation || (operation?.protectedAssetRequirements || []).length) return null;
+  const effect = effects[0];
+  const declaredInputs = Array.isArray(operation?.inputs) ? operation.inputs : [];
+  const outputs = Array.isArray(operation?.outputs) ? operation.outputs : [];
+  const subjectInput = declaredInputs.find((input) => input.name === effect.subjectInput);
+  if (!subjectInput || !outputs.length) return null;
+
+  const usedInputs = new Set([subjectInput.name]);
+  const result = {};
+  const unresolved = [];
+  for (const output of outputs) {
+    const exact = declaredInputs.find((input) => (
+      input.name === output.name && compatibleProjectionType(input, output)
+    ));
+    if (exact) {
+      usedInputs.add(exact.name);
+      result[output.name] = inputs[exact.name];
+    } else {
+      unresolved.push(output);
+    }
+  }
+  if (unresolved.length > 1) return null;
+  if (unresolved.length === 1) {
+    const output = unresolved[0];
+    const outputType = String(output?.type || "any").toLowerCase();
+    if (!["string", "any"].includes(outputType) || typeof effect.newValue !== "string") return null;
+    result[output.name] = effect.newValue;
+  }
+  if (declaredInputs.some((input) => input.required && !usedInputs.has(input.name))) return null;
+  return result;
+}
+
 function declaredDeterministicImplementation(buildRequest) {
   return declaredCalculationImplementation(buildRequest)
     || declaredContextEffectImplementation(buildRequest)
@@ -1255,6 +1290,7 @@ module.exports = {
   declaredCalculationImplementation,
   declaredInputProjectionImplementation,
   declaredContextEffectImplementation,
+  declaredContextEffectResult,
   listCapabilityBlueprints,
   buildComputeEntitySpec,
   backgroundImplementationInput,

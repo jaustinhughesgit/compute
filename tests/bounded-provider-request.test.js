@@ -13,7 +13,10 @@ const {
 } = require("../app/routes/modules/runEntity");
 const { resolveComputeInputPlaceholder } = require("../app/routes/inputPlaceholderTransport");
 const { copyRuntimeContext, useBundledRuntimeModule } = require("../app/routes/runtimeModules");
-const { IMPLEMENTATION_POLICY_VERSION } = require("../app/routes/capabilityManifest");
+const {
+  IMPLEMENTATION_POLICY_VERSION,
+  validateCapabilityManifest,
+} = require("../app/routes/capabilityManifest");
 
 function fakeAxios(calls) {
   const client = {
@@ -242,6 +245,8 @@ test("the entity boundary passes its provider deadline into existing entity exec
     version: 1,
     status: "active",
     ownerId: "u:7",
+    name: "Vehicle cleaner",
+    description: "Changes one resolved vehicle state from dirty to clean.",
     execution: { type: "remote", readOnly: true, timeoutMs: 15000 },
     operations: [{
       operationId: "lookup",
@@ -302,4 +307,75 @@ test("the entity boundary applies canonical use governance before capability exe
   assert.equal(response.error.code, "GOVERNANCE_FORBIDDEN");
   assert.equal(governedAction, "use");
   assert.equal(executed, false);
+});
+
+test("the entity boundary executes an unambiguous fixed ContextDB transition from its contract", async () => {
+  let handler;
+  let entityRuntimeCalled = false;
+  const manifest = validateCapabilityManifest({
+    schemaVersion: 1,
+    capabilityId: "vehicle.clean",
+    entityId: "vehicle-clean-entity",
+    version: 1,
+    status: "active",
+    ownerId: "u:7",
+    name: "Vehicle cleaner",
+    description: "Changes one resolved vehicle state from dirty to clean.",
+    execution: { type: "remote", readOnly: false, timeoutMs: 15000 },
+    operations: [{
+      operationId: "wash",
+      description: "Wash the referenced vehicle.",
+      inputs: [{
+        name: "vehicle",
+        type: "string",
+        required: true,
+        description: "The referenced vehicle.",
+        bindingHint: { source: "utterance", resolver: "entity_reference" },
+        clarification: "Which vehicle should be washed?",
+      }],
+      outputs: [
+        { name: "vehicle", type: "string", required: true, description: "The vehicle." },
+        { name: "state", type: "string", required: true, description: "The clean state." },
+      ],
+      freshness: { mode: "none", ttlSeconds: 0 },
+      answerTemplate: "Your {{vehicle}} is {{state}}.",
+      utteranceExamples: [{ text: "Wash my car.", inputs: { vehicle: "car" } }],
+      contextEffects: [{
+        type: "contextdb.replace_object",
+        subjectInput: "vehicle",
+        currentValue: "dirty",
+        newValue: "clean",
+      }],
+    }],
+    implementationPolicyVersion: IMPLEMENTATION_POLICY_VERSION,
+  });
+  const dynamodb = {
+    get: () => ({ promise: async () => ({ Item: { su: manifest.entityId, computeCapability: manifest } }) }),
+  };
+  register({
+    on: (_name, callback) => { handler = callback; },
+    use: () => ({
+      deps: { dynamodb },
+      runComputeEntity: async () => { entityRuntimeCalled = true; throw new Error("must not run"); },
+    }),
+  });
+
+  const response = await handler({
+    path: manifest.entityId,
+    req: {
+      body: {
+        capabilityId: manifest.capabilityId,
+        operationId: "wash",
+        inputs: { vehicle: "Camry" },
+      },
+      cookies: { e: "7" },
+    },
+    res: {},
+    next: () => {},
+  });
+
+  assert.equal(response.ok, true);
+  assert.equal(response.source, "compute-contract");
+  assert.deepEqual(response.result, { vehicle: "Camry", state: "clean" });
+  assert.equal(entityRuntimeCalled, false);
 });

@@ -19,6 +19,7 @@ const {
   sanitizeDiagnosticValue,
   valueType,
 } = require("../diagnosticSanitizer");
+const { declaredContextEffectResult } = require("../capabilityBlueprints");
 const {
   attachResult: attachExecutionResult,
   computeInvocation,
@@ -305,7 +306,10 @@ function register({ on, use }) {
         inputs,
       };
       const providerTimeoutMs = providerRequestTimeoutMs(manifest.execution.timeoutMs);
-      const executionPromise = typeof shared.runComputeEntity === "function"
+      const contractResult = declaredContextEffectResult(operation, inputs);
+      const executionPromise = contractResult
+        ? Promise.resolve(contractResult)
+        : typeof shared.runComputeEntity === "function"
         ? shared.runComputeEntity({
             entityId: actionFile,
             manifest,
@@ -332,7 +336,7 @@ function register({ on, use }) {
         manifest,
         operation,
         result: validateEntityResult(operation, rawResult),
-        source: "compute-entity",
+        source: contractResult ? "compute-contract" : "compute-entity",
       }), executionInvocation, {
         effects: [executionEffect({
           type: "governance",

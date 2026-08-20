@@ -10,6 +10,7 @@ const {
 const {
   buildComputeEntitySpec,
   declaredContextEffectImplementation,
+  declaredContextEffectResult,
   hasDeclaredDeterministicImplementation,
 } = require("../app/routes/capabilityBlueprints");
 const { applyGeneratedAnswerPlan } = require("../app/routes/capabilityInputSemantics");
@@ -763,4 +764,14 @@ test("a ContextDB transition does not guess across multiple result outputs", () 
     description: "A separate receipt value.",
   });
   assert.equal(declaredContextEffectImplementation(request), null);
+});
+
+test("a fixed ContextDB transition derives the same typed runtime result from its contract", () => {
+  const operation = carwashBuildRequest().operations[0];
+  assert.deepEqual(declaredContextEffectResult(operation, { vehicle: "Camry" }), {
+    vehicle: "Camry",
+    state: "clean",
+  });
+  operation.outputs.push({ name: "receipt", type: "string", required: true });
+  assert.equal(declaredContextEffectResult(operation, { vehicle: "Camry" }), null);
 });
