@@ -4,6 +4,8 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const {
   cookieRecordFromQuery,
+  isFreshBrowserIdentityRequest,
+  prepareFreshBrowserIdentity,
   propagateAuthenticatedCookie,
 } = require("../app/routes/sessionCookie");
 
@@ -34,4 +36,54 @@ test("a recovered cookie replaces the stale token for nested composition", () =>
   assert.equal(ctx.req.body.headers["X-accessToken"], "new-token");
   assert.equal(ctx.req.cookies.gi, "7");
   assert.equal(ctx.req.cookies.e, "9");
+});
+
+test("only the explicit new-user bootstrap may request a fresh browser identity", () => {
+  assert.equal(isFreshBrowserIdentityRequest({
+    path: "/newUser/newUser",
+    req: { body: { freshBrowserIdentity: true } },
+  }), true);
+  assert.equal(isFreshBrowserIdentityRequest({
+    path: "/newUser/newUser",
+    req: { body: {} },
+  }), false);
+  assert.equal(isFreshBrowserIdentityRequest({
+    path: "/contextGraphHydrateNamed/workspace",
+    req: { body: { freshBrowserIdentity: true } },
+  }), false);
+});
+
+test("fresh browser bootstrap removes stale host and domain identity cookies", () => {
+  const cleared = [];
+  const ctx = {
+    path: "/newUser/newUser",
+    xAccessToken: "stale-token",
+    cookie: { ak: "stale-token", gi: "4", e: "5" },
+    res: { clearCookie: (...args) => cleared.push(args) },
+    req: {
+      headers: {
+        "x-accesstoken": "stale-token",
+        "x-access-token": "stale-token",
+        xAccessToken: "stale-token",
+      },
+      cookies: { accessToken: "stale-token", unrelated: "keep" },
+      body: {
+        freshBrowserIdentity: true,
+        headers: {
+          "X-accessToken": "stale-token",
+          "x-accesstoken": "stale-token",
+        },
+      },
+    },
+  };
+  assert.equal(prepareFreshBrowserIdentity(ctx), true);
+  assert.equal(ctx.xAccessToken, null);
+  assert.equal(ctx.cookie, null);
+  assert.equal(ctx.req.cookies.accessToken, undefined);
+  assert.equal(ctx.req.cookies.unrelated, "keep");
+  assert.equal(ctx.req.headers["x-accesstoken"], undefined);
+  assert.equal(ctx.req.body.headers["X-accessToken"], undefined);
+  assert.equal(cleared.length, 2);
+  assert.equal(cleared[0][1].domain, undefined);
+  assert.equal(cleared[1][1].domain, ".1var.com");
 });

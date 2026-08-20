@@ -8,7 +8,10 @@ const express = require("express");
 const AWS = require("aws-sdk");
 const util = require("util");
 const { createShared } = require("./shared");
-const { propagateAuthenticatedCookie } = require("./sessionCookie");
+const {
+  prepareFreshBrowserIdentity,
+  propagateAuthenticatedCookie,
+} = require("./sessionCookie");
 
 let _deps, _shared, _signer;
 const ensureShared = () => (_shared ?? (_shared = createShared(_deps)));
@@ -54,7 +57,10 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, 
 
   _shared.use(async (ctx) => {
     const main = {};
-    const xA = ctx.xAccessToken || ctx.req.headers.xAccessToken
+    const freshBrowserIdentity = prepareFreshBrowserIdentity(ctx);
+    const xA = freshBrowserIdentity
+      ? null
+      : (ctx.xAccessToken || ctx.req.headers.xAccessToken);
 
     const ck = await _shared.manageCookie(
       main,
