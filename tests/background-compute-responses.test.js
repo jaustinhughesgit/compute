@@ -12,6 +12,7 @@ const {
   retrieveComputeEntitySpecBackground,
 } = require("../app/routes/capabilityBlueprints");
 const {
+  DEFAULT_MAX_PENDING_AGE_MS,
   backgroundResponseState,
 } = require("../app/routes/openAiBackgroundResponse");
 
@@ -333,6 +334,32 @@ test("terminal background failures remain explicit instead of polling forever", 
     }),
     /provider model failed/
   );
+});
+
+test("a model response cannot remain pending beyond the bounded job lifetime", () => {
+  const nowMs = Date.UTC(2026, 7, 20, 12, 0, 0);
+  const createdAtSeconds = (nowMs - DEFAULT_MAX_PENDING_AGE_MS - 1) / 1_000;
+  assert.throws(
+    () => backgroundResponseState({
+      status: "in_progress",
+      created_at: createdAtSeconds,
+    }, { nowMs }),
+    (error) => {
+      assert.equal(error.code, "OPENAI_BACKGROUND_RESPONSE_STALLED");
+      assert.equal(error.status, 408);
+      assert.equal(error.pendingStatus, "in_progress");
+      return true;
+    }
+  );
+});
+
+test("a recent or timestamp-free pending response remains resumable", () => {
+  const nowMs = Date.UTC(2026, 7, 20, 12, 0, 0);
+  assert.equal(backgroundResponseState({
+    status: "queued",
+    created_at: (nowMs - DEFAULT_MAX_PENDING_AGE_MS) / 1_000,
+  }, { nowMs }).pending, true);
+  assert.equal(backgroundResponseState({ status: "in_progress" }, { nowMs }).pending, true);
 });
 
 test("a provider build retry may research only the selected official provider domains", () => {

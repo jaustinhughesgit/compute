@@ -6,6 +6,7 @@
 
 const RESPONSE_ID_PATTERN = /^resp_[A-Za-z0-9_-]+$/;
 const PENDING_STATUSES = new Set(["queued", "in_progress"]);
+const DEFAULT_MAX_PENDING_AGE_MS = 10 * 60 * 1_000;
 
 function cleanText(value, limit = 2_000) {
   return String(value ?? "").replace(/[\u0000-\u001f\u007f]/g, " ").trim().slice(0, limit);
@@ -75,9 +76,29 @@ function responseOutputText(response) {
   return "";
 }
 
-function backgroundResponseState(response) {
+function backgroundResponseState(response, {
+  nowMs = Date.now(),
+  maxPendingAgeMs = DEFAULT_MAX_PENDING_AGE_MS,
+} = {}) {
   const status = cleanText(response?.status, 80).toLowerCase() || "unknown";
   if (PENDING_STATUSES.has(status)) {
+    const createdAtMs = Number(response?.created_at) * 1_000;
+    const pendingAgeMs = Number.isFinite(createdAtMs) && createdAtMs > 0
+      ? Math.max(0, Number(nowMs) - createdAtMs)
+      : null;
+    if (
+      Number.isFinite(pendingAgeMs)
+      && Number.isFinite(Number(maxPendingAgeMs))
+      && Number(maxPendingAgeMs) > 0
+      && pendingAgeMs > Number(maxPendingAgeMs)
+    ) {
+      const error = new Error("OpenAI background response exceeded its bounded pending lifetime");
+      error.code = "OPENAI_BACKGROUND_RESPONSE_STALLED";
+      error.status = 408;
+      error.pendingStatus = status;
+      error.pendingAgeMs = pendingAgeMs;
+      throw error;
+    }
     return {
       pending: true,
       status,
@@ -105,6 +126,7 @@ function backgroundResponseState(response) {
 
 module.exports = {
   RESPONSE_ID_PATTERN,
+  DEFAULT_MAX_PENDING_AGE_MS,
   requestOpenAiResponse,
   startBackgroundResponse,
   retrieveBackgroundResponse,

@@ -40,6 +40,14 @@ test("Convert returns a sanitized retry contract for background discovery failur
   assert.equal(buildDetails.stage, "compute_build");
   assert.equal(buildDetails.retryable, true);
 
+  const stalledBuild = new Error("OpenAI background response exceeded its bounded pending lifetime");
+  stalledBuild.code = "OPENAI_BACKGROUND_RESPONSE_STALLED";
+  stalledBuild.status = 408;
+  const stalledDetails = convertErrorDetails(markBackgroundBuildError(stalledBuild));
+  assert.equal(stalledDetails.code, "OPENAI_BACKGROUND_RESPONSE_STALLED");
+  assert.equal(stalledDetails.retryable, true);
+  assert.equal(stalledDetails.status, 408);
+
   const invalidImplementation = new Error("Generated response omitted a declared output");
   invalidImplementation.code = "INVALID_IMPLEMENTATION";
   assert.equal(markBackgroundBuildError(invalidImplementation).retryable, false);

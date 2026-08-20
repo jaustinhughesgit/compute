@@ -161,6 +161,8 @@ The generic notification inbox distinguishes browser acknowledgement from govern
 
 Entity creation and repair may outlive a Lambda request. Jobs require stable identity, owner and authorization scope, original request hash, phase/state, model response handle, retry count, checkpointed artifacts, terminal result, expiration, and idempotent application. SQS or another durable trigger can continue work; the website polls status through fresh requests.
 
+An OpenAI response may remain queued or in progress only for a bounded lifetime measured from its provider-issued creation timestamp. Once that lifetime expires, Compute records a typed retryable `OPENAI_BACKGROUND_RESPONSE_STALLED` failure instead of returning pending forever. A caller may then start one of its bounded replacement attempts with a new response and build identity; completed and finalizing work retains the existing lease and idempotency rules.
+
 If an entity-revision submission response is lost, repeating the identical revision reconnects to the stored job with the same request hash. A different revision still receives the active-edit conflict and cannot adopt another request's model work.
 
 Typed revision patches keep array replacement strict. For object members, `add` and a generated `replace` of a missing member converge to the same assignment before the complete revised entity, manifest, JPL, protected contract, and semantic synchronization gates run.
