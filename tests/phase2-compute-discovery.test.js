@@ -406,6 +406,95 @@ test("one exact invocation subject and transition derive using IDs without model
   }), /one exact entity use binding/);
 });
 
+test("a literal command frame selects the exact operation before deriving using", async () => {
+  const manifest = validateCapabilityManifest({
+    schemaVersion: 1,
+    capabilityId: "vehicle.service",
+    entityId: "compute-car-service",
+    version: 1,
+    status: "active",
+    ownerId: "u:1",
+    execution: { type: "remote", readOnly: false, timeoutMs: 15000 },
+    operations: [{
+      operationId: "wash_car",
+      description: "Wash the selected car.",
+      inputs: [{
+        name: "car", type: "string", required: true,
+        bindingHint: { source: "utterance", resolver: "entity_reference" },
+      }],
+      outputs: [{ name: "state", type: "string", required: true }],
+      utteranceExamples: [{ text: "wash my car", inputs: { car: "my car" } }],
+      answerTemplate: "{{car}} is {{state}}",
+      contextEffects: [{
+        type: "contextdb.replace_object",
+        subjectInput: "car",
+        currentValue: "dirty",
+        newValue: "clean",
+      }],
+    }, {
+      operationId: "get_car_clean_status",
+      description: "Get the selected car's current clean status.",
+      inputs: [{
+        name: "car", type: "string", required: true,
+        bindingHint: { source: "utterance", resolver: "entity_reference" },
+      }],
+      outputs: [{ name: "state", type: "string", required: true }],
+      utteranceExamples: [{ text: "wash my car", inputs: { car: "my car" } }],
+      answerTemplate: "{{car}} is {{state}}",
+    }],
+  });
+  const wash = manifest.operations.find((operation) => operation.operationId === "wash_car");
+  const evidence = [{
+    invocationReferents: [{
+      mention: "Austin",
+      entityId: "usr_austin",
+      resolvedLocally: true,
+      targetMention: "Austin's car",
+      targetEntityId: "ctx_car",
+      targetResolvedLocally: true,
+    }],
+    relatedContext: {
+      entities: [
+        { id: "ctx_car", names: ["Toyota Camry"], lemmas: ["car"] },
+        { id: "term_condition", names: [], lemmas: ["condition"] },
+        { id: "ctx_dirty", names: [], lemmas: ["dirty"] },
+      ],
+      relations: [{
+        id: "rel_condition",
+        subj: "ctx_car",
+        prop: "term_condition",
+        obj: "ctx_dirty",
+        publisherId: "u:1",
+        version: 4,
+        contextSource: "named-hydration",
+      }],
+    },
+  }];
+  const result = await discoverComputeCapability({
+    openai: model({
+      decision: "reuse_existing",
+      confidence: 0.98,
+      reason: "Use the existing car service.",
+      capabilityId: manifest.capabilityId,
+      entityId: manifest.entityId,
+      operationId: "get_car_clean_status",
+      inputValues: [{ name: "car", value: "ctx_car" }],
+      entityUseBindings: [],
+      capabilityRequest: null,
+      answerPlan: null,
+    }),
+    utterance: "Wash Austin's car.",
+    requestedBy: "u:2",
+    availableCapabilities: [manifest],
+    semanticEvidence: evidence,
+  });
+  assert.equal(result.decision, "reuse");
+  assert.equal(result.essence.operationId, "wash_car");
+  assert.deepEqual(result.inputValues, { car: "Austin's car" });
+  assert.equal(result.entityUseBindings.length, wash.entityDependencies.length);
+  assert.equal(result.entityUseBindings[0].targetRelationId, "rel_condition");
+});
+
 test("a model cannot turn a new value for an open entity referent into an app extension", async () => {
   const manifest = validateCapabilityManifest({
     schemaVersion: 1,

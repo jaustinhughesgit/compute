@@ -642,6 +642,9 @@ function openEntityReferentInvocationMatches({
     candidateValues.add(String(inputValues[input.name] ?? "").trim());
   }
   for (const referent of semanticEvidenceContext(semanticEvidence).invocationReferents || []) {
+    if (referent?.targetResolvedLocally === true && referent?.targetMention) {
+      candidateValues.add(String(referent.targetMention).trim());
+    }
     if (referent?.resolvedLocally === true && referent?.mention) {
       candidateValues.add(String(referent.mention).trim());
     }
@@ -657,6 +660,52 @@ function openEntityReferentInvocationMatches({
     );
     return sample && candidateFrames.has(invocationFrame(example.text, sample[1]));
   });
+}
+
+function exactInvocationOperation({ manifest, utterance, semanticEvidence = [] } = {}) {
+  const semanticContext = semanticEvidenceContext(semanticEvidence);
+  const surfaces = [...new Set((semanticContext.invocationReferents || []).map((referent) => {
+    if (referent?.targetResolvedLocally === true && referent?.targetMention) {
+      return String(referent.targetMention).trim();
+    }
+    if (referent?.resolvedLocally === true && referent?.mention) {
+      return String(referent.mention).trim();
+    }
+    return "";
+  }).filter(Boolean))];
+  const invocationFrames = new Set(surfaces.map((surface) => invocationFrame(utterance, surface)).filter(Boolean));
+  if (!invocationFrames.size) return null;
+  const candidates = (manifest?.operations || []).filter((operation) => {
+    const inputs = (operation?.inputs || []).filter((input) => (
+      input?.required !== false
+      && String(input?.bindingHint?.source || "").toLowerCase() === "utterance"
+      && ["entity", "entity reference", "resolved entity"].includes(
+        normalizedWords(input?.bindingHint?.resolver)
+      )
+    ));
+    if (inputs.length !== 1) return false;
+    return (operation?.utteranceExamples || []).some((example) => {
+      if (!isObject(example) || !isObject(example.inputs)) return false;
+      const sample = Object.entries(example.inputs).find(([name]) => (
+        canonicalizeGeneratedIdentifier(name) === canonicalizeGeneratedIdentifier(inputs[0].name)
+      ));
+      return sample && invocationFrames.has(invocationFrame(example.text, sample[1]));
+    });
+  });
+  if (candidates.length === 1) return candidates[0];
+  if (candidates.length < 2) return null;
+  const ignored = new Set(["entity", "reference", "my", "the", "a", "an", "please"]);
+  const actionWords = new Set([...invocationFrames].flatMap((frame) => (
+    normalizedWords(frame).split(" ").filter((word) => word && !ignored.has(word))
+  )));
+  const aligned = candidates.filter((operation) => {
+    const operationWords = new Set(normalizedWords([
+      operation.operationId,
+      operation.description,
+    ].filter(Boolean).join(" ")).split(" ").filter(Boolean));
+    return [...actionWords].some((word) => operationWords.has(word));
+  });
+  return aligned.length === 1 ? aligned[0] : null;
 }
 
 function normalizeEntityUseBindings({
@@ -1745,9 +1794,16 @@ function parseDiscoveryDecision({
       error.code = "INACTIVE_CAPABILITY_REUSE";
       throw error;
     }
-    const selectedOperation = (matched.operations || []).find((item) =>
+    const modelSelectedOperation = (matched.operations || []).find((item) =>
       String(item?.operationId || "") === String(operationId || "")
     ) || (matched.operations || [])[0] || null;
+    const invocationSelectedOperation = exactInvocationOperation({
+      manifest: matched,
+      utterance,
+      semanticEvidence,
+    });
+    const selectedOperation = invocationSelectedOperation || modelSelectedOperation;
+    const selectedOperationId = String(selectedOperation?.operationId || operationId || "") || null;
     const inputValues = normalizeDiscoveryInputValues({
       parsedValues: parsed.inputValues,
       utterance,
@@ -1786,7 +1842,7 @@ function parseDiscoveryDecision({
         : reason,
       utterance,
       capabilityId: matched.capabilityId,
-      operationId,
+      operationId: selectedOperationId,
       inputValues,
       entityUseBindings,
       manifest: matched,
