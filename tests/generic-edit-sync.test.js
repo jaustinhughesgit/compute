@@ -8,6 +8,7 @@ const {
   convertErrorDetails,
   markBackgroundBuildError,
   markBackgroundDiscoveryError,
+  matchesCapabilityBuildRequest,
 } = require("../app/routes/modules/convert");
 
 test("Convert returns a sanitized retry contract for background discovery failures", () => {
@@ -90,17 +91,49 @@ test("Convert uses generic discovery, reuse, extension, and model-built entity p
   assert.match(source, /Another Lambda is materializing this deterministic capability build/);
   assert.match(source, /generationAttemptLimit/);
   assert.match(source, /buildComputeCapability === true/);
-  assert.match(source, /capabilityBuildId === buildId/);
+  assert.match(source, /matchesCapabilityBuildRequest/);
   assert.doesNotMatch(source, /weather/i);
 });
 
 test("a resumed build reconnects before its completed entity can look like a collision", () => {
   const source = fs.readFileSync(path.join(__dirname, "../app/routes/modules/convert.js"), "utf8");
-  const resumeValidation = source.indexOf("const validResume = record");
+  const resumeValidation = source.indexOf("const validResume = matchesCapabilityBuildRequest");
   const collisionLookup = source.indexOf("await capabilityRegistry.findByCapability", resumeValidation);
   assert.ok(resumeValidation >= 0 && collisionLookup > resumeValidation);
   assert.match(source, /const existing = resumedClaim \? \[\] : await capabilityRegistry\.findByCapability/);
   assert.match(source, /if \(resumedClaim\) \{\s*claim = resumedClaim;\s*await buildCoordinator\.renew\(claim\)/);
+});
+
+test("a lost first build response reconnects by exact owner, capability, and request hash", () => {
+  const record = {
+    capabilityBuildId: "build_exact",
+    capabilityBuildStatus: "completed",
+    capabilityOwnerId: "u:9",
+    capabilityId: "wash_car",
+    capabilityRequestHash: "request_hash",
+    capabilityEntityId: "entity_exact",
+  };
+  assert.equal(matchesCapabilityBuildRequest(record, {
+    ownerId: "u:9",
+    capabilityId: "wash_car",
+    requestHash: "request_hash",
+  }), true);
+  assert.equal(matchesCapabilityBuildRequest(record, {
+    ownerId: "u:10",
+    capabilityId: "wash_car",
+    requestHash: "request_hash",
+  }), false);
+  assert.equal(matchesCapabilityBuildRequest(record, {
+    ownerId: "u:9",
+    capabilityId: "wash_car",
+    requestHash: "different_contract",
+  }), false);
+
+  const source = fs.readFileSync(path.join(__dirname, "../app/routes/modules/convert.js"), "utf8");
+  const lostResponseRecovery = source.indexOf("The client can lose the first BUILD_PENDING/BUILT response");
+  const collisionLookup = source.indexOf("await capabilityRegistry.findByCapability", lostResponseRecovery);
+  assert.ok(lostResponseRecovery >= 0 && collisionLookup > lostResponseRecovery);
+  assert.match(source, /status:\s*"BUILD_IN_PROGRESS"[\s\S]*The exact capability build is still running/);
 });
 
 test("Compute request middleware does not log credentials or the dependency container", () => {

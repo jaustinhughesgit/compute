@@ -90,6 +90,20 @@ function convertErrorDetails(error) {
   });
 }
 
+function matchesCapabilityBuildRequest(record, {
+  ownerId,
+  capabilityId,
+  requestHash,
+  buildId = null,
+} = {}) {
+  if (!record || typeof record !== "object") return false;
+  const expectedBuildId = String(buildId || "").trim();
+  return record.capabilityOwnerId === String(ownerId || "system")
+    && String(record.capabilityId || "").trim().toLowerCase() === String(capabilityId || "").trim().toLowerCase()
+    && record.capabilityRequestHash === String(requestHash || "")
+    && (!expectedBuildId || record.capabilityBuildId === expectedBuildId);
+}
+
 function shorthandExecutionSource(retrieved, capabilityBuild) {
   if (capabilityBuild) return { published: {} };
   return retrieved?.published ? retrieved : null;
@@ -447,15 +461,17 @@ function register({ on, use }) {
       }) => {
         const capabilityId = capabilityBuildRequest.capabilityIdHint;
         const requestHash = stableHash(JSON.stringify(capabilityBuildRequest));
+        const identity = buildCoordinator.identity({ ownerId, capabilityId });
+        const priorRecord = await buildCoordinator.get(identity);
         let resumedClaim = null;
         if (buildId) {
-          const identity = buildCoordinator.identity({ ownerId, capabilityId });
-          const record = await buildCoordinator.get(identity);
-          const validResume = record
-            && record.capabilityBuildId === buildId
-            && record.capabilityOwnerId === ownerId
-            && record.capabilityId === capabilityId
-            && record.capabilityRequestHash === requestHash;
+          const record = priorRecord;
+          const validResume = matchesCapabilityBuildRequest(record, {
+            ownerId,
+            capabilityId,
+            requestHash,
+            buildId,
+          });
           if (!validResume) {
             return capabilityStateResponse({
               status: "BUILD_RESUME_REJECTED",
@@ -498,6 +514,39 @@ function register({ on, use }) {
             });
           }
           resumedClaim = { acquired: true, ...identity, record };
+        } else if (matchesCapabilityBuildRequest(priorRecord, {
+          ownerId,
+          capabilityId,
+          requestHash,
+        })) {
+          // The client can lose the first BUILD_PENDING/BUILT response to its
+          // bounded HTTP timeout. Recover the exact durable build by request
+          // hash before registry collision handling; it is the same request,
+          // not a competing capability contract.
+          if (priorRecord.capabilityBuildStatus === "completed" && priorRecord.capabilityEntityId) {
+            const completedManifest = await capabilityRegistry.getByEntity(
+              priorRecord.capabilityEntityId,
+              { includeInactive: true }
+            );
+            return capabilityStateResponse({
+              status: completedManifest ? "BUILT_AND_REGISTERED" : "BUILD_FAILED",
+              manifest: completedManifest,
+              buildId: priorRecord.capabilityBuildId,
+              record: priorRecord,
+              reason: completedManifest
+                ? "The exact capability build completed after an earlier response ended."
+                : "The completed build no longer has a readable capability manifest.",
+              artifacts: priorRecord.capabilityBuildArtifacts,
+            });
+          }
+          if (priorRecord.capabilityBuildStatus === "building") {
+            return capabilityStateResponse({
+              status: "BUILD_IN_PROGRESS",
+              buildId: priorRecord.capabilityBuildId,
+              record: priorRecord,
+              reason: "The exact capability build is still running after an earlier response ended.",
+            });
+          }
         }
 
         const existing = resumedClaim ? [] : await capabilityRegistry.findByCapability(capabilityId, {
@@ -1526,4 +1575,5 @@ module.exports = {
   convertErrorDetails,
   markBackgroundDiscoveryError,
   markBackgroundBuildError,
+  matchesCapabilityBuildRequest,
 };
